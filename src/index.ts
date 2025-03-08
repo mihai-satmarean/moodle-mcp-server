@@ -148,21 +148,21 @@ class MoodleMcpServer {
           },
         },
         {
-          name: 'get_student_submissions',
-          description: 'Obtiene las entregas de tareas de un estudiante específico',
+          name: 'get_submissions',
+          description: 'Obtiene las entregas de tareas en el curso configurado',
           inputSchema: {
             type: 'object',
             properties: {
               studentId: {
                 type: 'number',
-                description: 'ID del estudiante',
+                description: 'ID opcional del estudiante. Si no se proporciona, se devolverán entregas de todos los estudiantes',
               },
               assignmentId: {
                 type: 'number',
                 description: 'ID opcional de la tarea. Si no se proporciona, se devolverán todas las entregas',
               },
             },
-            required: ['studentId'],
+            required: [],
           },
         },
         {
@@ -223,8 +223,8 @@ class MoodleMcpServer {
             return await this.getAssignments();
           case 'get_quizzes':
             return await this.getQuizzes();
-          case 'get_student_submissions':
-            return await this.getStudentSubmissions(request.params.arguments);
+          case 'get_submissions':
+            return await this.getSubmissions(request.params.arguments);
           case 'provide_feedback':
             return await this.provideFeedback(request.params.arguments);
           case 'get_submission_content':
@@ -329,15 +329,11 @@ class MoodleMcpServer {
     };
   }
 
-  private async getStudentSubmissions(args: any) {
-    if (!args.studentId) {
-      throw new McpError(
-        ErrorCode.InvalidParams,
-        'Student ID is required'
-      );
-    }
-
-    console.error(`[API] Requesting submissions for student ${args.studentId}`);
+  private async getSubmissions(args: any) {
+    const studentId = args.studentId;
+    const assignmentId = args.assignmentId;
+    
+    console.error(`[API] Requesting submissions${studentId ? ` for student ${studentId}` : ''}`);
     
     // Primero obtenemos todas las tareas
     const assignmentsResponse = await this.axiosInstance.get('', {
@@ -350,8 +346,8 @@ class MoodleMcpServer {
     const assignments = assignmentsResponse.data.courses[0]?.assignments || [];
     
     // Si se especificó un ID de tarea, filtramos solo esa tarea
-    const targetAssignments = args.assignmentId 
-      ? assignments.filter((a: any) => a.id === args.assignmentId)
+    const targetAssignments = assignmentId
+      ? assignments.filter((a: any) => a.id === assignmentId)
       : assignments;
     
     if (targetAssignments.length === 0) {
@@ -365,7 +361,7 @@ class MoodleMcpServer {
       };
     }
 
-    // Para cada tarea, obtenemos las entregas del estudiante
+    // Para cada tarea, obtenemos todas las entregas
     const submissionsPromises = targetAssignments.map(async (assignment: any) => {
       const submissionsResponse = await this.axiosInstance.get('', {
         params: {
@@ -375,17 +371,8 @@ class MoodleMcpServer {
       });
 
       const submissions = submissionsResponse.data.assignments[0]?.submissions || [];
-      const studentSubmission = submissions.find((s: any) => s.userid === args.studentId);
       
-      if (!studentSubmission) {
-        return {
-          assignment: assignment.name,
-          assignmentId: assignment.id,
-          submission: 'No entregado',
-        };
-      }
-
-      // Obtenemos las calificaciones
+      // Obtenemos las calificaciones para esta tarea
       const gradesResponse = await this.axiosInstance.get('', {
         params: {
           wsfunction: 'mod_assign_get_grades',
@@ -394,16 +381,28 @@ class MoodleMcpServer {
       });
 
       const grades = gradesResponse.data.assignments[0]?.grades || [];
-      const studentGrade = grades.find((g: any) => g.userid === args.studentId);
+      
+      // Si se especificó un ID de estudiante, filtramos solo sus entregas
+      const targetSubmissions = studentId
+        ? submissions.filter((s: any) => s.userid === studentId)
+        : submissions;
+      
+      // Procesamos cada entrega
+      const processedSubmissions = targetSubmissions.map((submission: any) => {
+        const studentGrade = grades.find((g: any) => g.userid === submission.userid);
+        
+        return {
+          userid: submission.userid,
+          status: submission.status,
+          timemodified: new Date(submission.timemodified * 1000).toISOString(),
+          grade: studentGrade ? studentGrade.grade : 'No calificado',
+        };
+      });
       
       return {
         assignment: assignment.name,
         assignmentId: assignment.id,
-        submission: {
-          status: studentSubmission.status,
-          timemodified: new Date(studentSubmission.timemodified * 1000).toISOString(),
-          grade: studentGrade ? studentGrade.grade : 'No calificado',
-        },
+        submissions: processedSubmissions.length > 0 ? processedSubmissions : 'No hay entregas',
       };
     });
 
