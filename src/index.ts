@@ -82,6 +82,11 @@ interface SubmissionContent {
   timemodified: number;
 }
 
+interface QuizGradeResponse {
+  hasgrade: boolean;
+  grade?: string;  // Este campo solo está presente si hasgrade es true
+}
+
 class MoodleMcpServer {
   private server: Server;
   private axiosInstance;
@@ -209,6 +214,24 @@ class MoodleMcpServer {
             required: ['studentId', 'assignmentId'],
           },
         },
+        {
+          name: 'get_quiz_grade',
+          description: 'Obtiene la calificación de un estudiante en un quiz específico',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              studentId: {
+                type: 'number',
+                description: 'ID del estudiante',
+              },
+              quizId: {
+                type: 'number',
+                description: 'ID del quiz',
+              },
+            },
+            required: ['studentId', 'quizId'],
+          },
+        },
       ],
     }));
 
@@ -229,6 +252,8 @@ class MoodleMcpServer {
             return await this.provideFeedback(request.params.arguments);
           case 'get_submission_content':
             return await this.getSubmissionContent(request.params.arguments);
+          case 'get_quiz_grade':
+            return await this.getQuizGrade(request.params.arguments);
           default:
             throw new McpError(
               ErrorCode.MethodNotFound,
@@ -545,6 +570,60 @@ class MoodleMcpServer {
             {
               type: 'text',
               text: `Error al obtener el contenido de la entrega: ${
+                error.response?.data?.message || error.message
+              }`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      throw error;
+    }
+  }
+
+  private async getQuizGrade(args: any) {
+    if (!args.studentId || !args.quizId) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        'Student ID and Quiz ID are required'
+      );
+    }
+
+    console.error(`[API] Requesting quiz grade for student ${args.studentId} on quiz ${args.quizId}`);
+    
+    try {
+      const response = await this.axiosInstance.get('', {
+        params: {
+          wsfunction: 'mod_quiz_get_user_best_grade',
+          quizid: args.quizId,
+          userid: args.studentId,
+        },
+      });
+
+      // Procesamos la respuesta
+      const result = {
+        quizId: args.quizId,
+        studentId: args.studentId,
+        hasGrade: response.data.hasgrade,
+        grade: response.data.hasgrade ? response.data.grade : 'No calificado',
+      };
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('[Error]', error);
+      if (axios.isAxiosError(error)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error al obtener la calificación del quiz: ${
                 error.response?.data?.message || error.message
               }`,
             },
