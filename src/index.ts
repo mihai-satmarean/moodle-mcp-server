@@ -64,6 +64,24 @@ interface Submission {
   gradefordisplay?: string;
 }
 
+interface SubmissionContent {
+  assignment: number;
+  userid: number;
+  status: string;
+  submissiontext?: string;
+  plugins?: Array<{
+    type: string;
+    content?: string;
+    files?: Array<{
+      filename: string;
+      fileurl: string;
+      filesize: number;
+      filetype: string;
+    }>;
+  }>;
+  timemodified: number;
+}
+
 class MoodleMcpServer {
   private server: Server;
   private axiosInstance;
@@ -173,6 +191,24 @@ class MoodleMcpServer {
             required: ['studentId', 'assignmentId', 'feedback'],
           },
         },
+        {
+          name: 'get_submission_content',
+          description: 'Obtiene el contenido detallado de una entrega específica, incluyendo texto y archivos adjuntos',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              studentId: {
+                type: 'number',
+                description: 'ID del estudiante',
+              },
+              assignmentId: {
+                type: 'number',
+                description: 'ID de la tarea',
+              },
+            },
+            required: ['studentId', 'assignmentId'],
+          },
+        },
       ],
     }));
 
@@ -191,6 +227,8 @@ class MoodleMcpServer {
             return await this.getStudentSubmissions(request.params.arguments);
           case 'provide_feedback':
             return await this.provideFeedback(request.params.arguments);
+          case 'get_submission_content':
+            return await this.getSubmissionContent(request.params.arguments);
           default:
             throw new McpError(
               ErrorCode.MethodNotFound,
@@ -418,6 +456,105 @@ class MoodleMcpServer {
         },
       ],
     };
+  }
+
+  private async getSubmissionContent(args: any) {
+    if (!args.studentId || !args.assignmentId) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        'Student ID and Assignment ID are required'
+      );
+    }
+
+    console.error(`[API] Requesting submission content for student ${args.studentId} on assignment ${args.assignmentId}`);
+    
+    try {
+      // Utilizamos la función mod_assign_get_submission_status para obtener el contenido detallado
+      const response = await this.axiosInstance.get('', {
+        params: {
+          wsfunction: 'mod_assign_get_submission_status',
+          assignid: args.assignmentId,
+          userid: args.studentId,
+        },
+      });
+
+      // Procesamos la respuesta para extraer el contenido relevante
+      const submissionData = response.data.submission || {};
+      const plugins = response.data.lastattempt?.submission?.plugins || [];
+      
+      // Extraemos el texto de la entrega y los archivos adjuntos
+      let submissionText = '';
+      const files = [];
+      
+      for (const plugin of plugins) {
+        // Procesamos el plugin de texto en línea
+        if (plugin.type === 'onlinetext') {
+          const textField = plugin.editorfields?.find((field: any) => field.name === 'onlinetext');
+          if (textField) {
+            submissionText = textField.text || '';
+          }
+        }
+        
+        // Procesamos el plugin de archivos
+        if (plugin.type === 'file') {
+          const filesList = plugin.fileareas?.find((area: any) => area.area === 'submission_files');
+          if (filesList && filesList.files) {
+            for (const file of filesList.files) {
+              files.push({
+                filename: file.filename,
+                fileurl: file.fileurl,
+                filesize: file.filesize,
+                filetype: file.mimetype,
+              });
+            }
+          }
+        }
+      }
+      
+      // Construimos el objeto de respuesta
+      const submissionContent = {
+        assignment: args.assignmentId,
+        userid: args.studentId,
+        status: submissionData.status || 'unknown',
+        submissiontext: submissionText,
+        plugins: [
+          {
+            type: 'onlinetext',
+            content: submissionText,
+          },
+          {
+            type: 'file',
+            files: files,
+          },
+        ],
+        timemodified: submissionData.timemodified || 0,
+      };
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(submissionContent, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('[Error]', error);
+      if (axios.isAxiosError(error)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error al obtener el contenido de la entrega: ${
+                error.response?.data?.message || error.message
+              }`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      throw error;
+    }
   }
 
   async run() {
