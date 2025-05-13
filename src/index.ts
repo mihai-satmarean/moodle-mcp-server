@@ -9,12 +9,12 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import axios from 'axios';
 
-// Configuración de variables de entorno
+// Environment variable configuration
 const MOODLE_API_URL = process.env.MOODLE_API_URL;
 const MOODLE_API_TOKEN = process.env.MOODLE_API_TOKEN;
 const MOODLE_COURSE_ID = process.env.MOODLE_COURSE_ID;
 
-// Verificar que las variables de entorno estén definidas
+// Verify that the environment variables are defined
 if (!MOODLE_API_URL) {
   throw new Error('MOODLE_API_URL environment variable is required');
 }
@@ -27,7 +27,7 @@ if (!MOODLE_COURSE_ID) {
   throw new Error('MOODLE_COURSE_ID environment variable is required');
 }
 
-// Interfaces para los tipos de datos
+// Interfaces for data types
 interface Student {
   id: number;
   username: string;
@@ -84,7 +84,7 @@ interface SubmissionContent {
 
 interface QuizGradeResponse {
   hasgrade: boolean;
-  grade?: string;  // Este campo solo está presente si hasgrade es true
+  grade?: string; // This field is only present if hasgrade is true
 }
 
 class MoodleMcpServer {
@@ -127,7 +127,7 @@ class MoodleMcpServer {
       tools: [
         {
           name: 'get_students',
-          description: 'Obtiene la lista de estudiantes inscritos en el curso configurado',
+          description: 'Gets the list of students enrolled in the configured course',
           inputSchema: {
             type: 'object',
             properties: {},
@@ -136,7 +136,7 @@ class MoodleMcpServer {
         },
         {
           name: 'get_assignments',
-          description: 'Obtiene la lista de tareas asignadas en el curso configurado',
+          description: 'Gets the list of assignments in the configured course',
           inputSchema: {
             type: 'object',
             properties: {},
@@ -145,7 +145,7 @@ class MoodleMcpServer {
         },
         {
           name: 'get_quizzes',
-          description: 'Obtiene la lista de quizzes en el curso configurado',
+          description: 'Gets the list of quizzes in the configured course',
           inputSchema: {
             type: 'object',
             properties: {},
@@ -154,17 +154,17 @@ class MoodleMcpServer {
         },
         {
           name: 'get_submissions',
-          description: 'Obtiene las entregas de tareas en el curso configurado',
+          description: 'Gets the assignment submissions in the configured course',
           inputSchema: {
             type: 'object',
             properties: {
               studentId: {
                 type: 'number',
-                description: 'ID opcional del estudiante. Si no se proporciona, se devolverán entregas de todos los estudiantes',
+                description: 'Optional student ID. If not provided, submissions from all students will be returned',
               },
               assignmentId: {
                 type: 'number',
-                description: 'ID opcional de la tarea. Si no se proporciona, se devolverán todas las entregas',
+                description: 'Optional assignment ID. If not provided, all submissions will be returned',
               },
             },
             required: [],
@@ -172,25 +172,25 @@ class MoodleMcpServer {
         },
         {
           name: 'provide_feedback',
-          description: 'Proporciona feedback sobre una tarea entregada por un estudiante',
+          description: 'Provides feedback on an assignment submitted by a student',
           inputSchema: {
             type: 'object',
             properties: {
               studentId: {
                 type: 'number',
-                description: 'ID del estudiante',
+                description: 'Student ID',
               },
               assignmentId: {
                 type: 'number',
-                description: 'ID de la tarea',
+                description: 'Assignment ID',
               },
               grade: {
                 type: 'number',
-                description: 'Calificación numérica a asignar',
+                description: 'Numeric grade to assign',
               },
               feedback: {
                 type: 'string',
-                description: 'Texto del feedback a proporcionar',
+                description: 'Text of the feedback to provide',
               },
             },
             required: ['studentId', 'assignmentId', 'feedback'],
@@ -198,17 +198,17 @@ class MoodleMcpServer {
         },
         {
           name: 'get_submission_content',
-          description: 'Obtiene el contenido detallado de una entrega específica, incluyendo texto y archivos adjuntos',
+          description: 'Gets the detailed content of a specific submission, including text and attachments',
           inputSchema: {
             type: 'object',
             properties: {
               studentId: {
                 type: 'number',
-                description: 'ID del estudiante',
+                description: 'Student ID',
               },
               assignmentId: {
                 type: 'number',
-                description: 'ID de la tarea',
+                description: 'Assignment ID',
               },
             },
             required: ['studentId', 'assignmentId'],
@@ -216,17 +216,17 @@ class MoodleMcpServer {
         },
         {
           name: 'get_quiz_grade',
-          description: 'Obtiene la calificación de un estudiante en un quiz específico',
+          description: 'Gets the grade of a student in a specific quiz',
           inputSchema: {
             type: 'object',
             properties: {
               studentId: {
                 type: 'number',
-                description: 'ID del estudiante',
+                description: 'Student ID',
               },
               quizId: {
                 type: 'number',
-                description: 'ID del quiz',
+                description: 'Quiz ID',
               },
             },
             required: ['studentId', 'quizId'],
@@ -360,7 +360,7 @@ class MoodleMcpServer {
     
     console.error(`[API] Requesting submissions${studentId ? ` for student ${studentId}` : ''}`);
     
-    // Primero obtenemos todas las tareas
+    // First, get all assignments
     const assignmentsResponse = await this.axiosInstance.get('', {
       params: {
         wsfunction: 'mod_assign_get_assignments',
@@ -370,7 +370,7 @@ class MoodleMcpServer {
 
     const assignments = assignmentsResponse.data.courses[0]?.assignments || [];
     
-    // Si se especificó un ID de tarea, filtramos solo esa tarea
+    // If an assignment ID was specified, filter only that assignment
     const targetAssignments = assignmentId
       ? assignments.filter((a: any) => a.id === assignmentId)
       : assignments;
@@ -380,13 +380,13 @@ class MoodleMcpServer {
         content: [
           {
             type: 'text',
-            text: 'No se encontraron tareas para el criterio especificado.',
+            text: 'No assignments found for the specified criteria.',
           },
         ],
       };
     }
 
-    // Para cada tarea, obtenemos todas las entregas
+    // For each assignment, get all submissions
     const submissionsPromises = targetAssignments.map(async (assignment: any) => {
       const submissionsResponse = await this.axiosInstance.get('', {
         params: {
@@ -397,7 +397,7 @@ class MoodleMcpServer {
 
       const submissions = submissionsResponse.data.assignments[0]?.submissions || [];
       
-      // Obtenemos las calificaciones para esta tarea
+      // Get grades for this assignment
       const gradesResponse = await this.axiosInstance.get('', {
         params: {
           wsfunction: 'mod_assign_get_grades',
@@ -407,12 +407,12 @@ class MoodleMcpServer {
 
       const grades = gradesResponse.data.assignments[0]?.grades || [];
       
-      // Si se especificó un ID de estudiante, filtramos solo sus entregas
+      // If a student ID was specified, filter only their submissions
       const targetSubmissions = studentId
         ? submissions.filter((s: any) => s.userid === studentId)
         : submissions;
       
-      // Procesamos cada entrega
+      // Process each submission
       const processedSubmissions = targetSubmissions.map((submission: any) => {
         const studentGrade = grades.find((g: any) => g.userid === submission.userid);
         
@@ -420,14 +420,14 @@ class MoodleMcpServer {
           userid: submission.userid,
           status: submission.status,
           timemodified: new Date(submission.timemodified * 1000).toISOString(),
-          grade: studentGrade ? studentGrade.grade : 'No calificado',
+          grade: studentGrade ? studentGrade.grade : 'Not graded',
         };
       });
       
       return {
         assignment: assignment.name,
         assignmentId: assignment.id,
-        submissions: processedSubmissions.length > 0 ? processedSubmissions : 'No hay entregas',
+        submissions: processedSubmissions.length > 0 ? processedSubmissions : 'No submissions',
       };
     });
 
@@ -459,14 +459,14 @@ class MoodleMcpServer {
         assignmentid: args.assignmentId,
         userid: args.studentId,
         grade: args.grade || 0,
-        attemptnumber: -1, // Último intento
+        attemptnumber: -1, // Last attempt
         addattempt: 0,
         workflowstate: 'released',
         applytoall: 0,
         plugindata: {
           assignfeedbackcomments_editor: {
             text: args.feedback,
-            format: 1, // Formato HTML
+            format: 1, // HTML Format
           },
         },
       },
@@ -476,7 +476,7 @@ class MoodleMcpServer {
       content: [
         {
           type: 'text',
-          text: `Feedback proporcionado correctamente para el estudiante ${args.studentId} en la tarea ${args.assignmentId}.`,
+          text: `Feedback successfully provided for student ${args.studentId} on assignment ${args.assignmentId}.`,
         },
       ],
     };
@@ -493,7 +493,7 @@ class MoodleMcpServer {
     console.error(`[API] Requesting submission content for student ${args.studentId} on assignment ${args.assignmentId}`);
     
     try {
-      // Utilizamos la función mod_assign_get_submission_status para obtener el contenido detallado
+      // Use the mod_assign_get_submission_status function to get detailed content
       const response = await this.axiosInstance.get('', {
         params: {
           wsfunction: 'mod_assign_get_submission_status',
@@ -502,16 +502,16 @@ class MoodleMcpServer {
         },
       });
 
-      // Procesamos la respuesta para extraer el contenido relevante
+      // Process the response to extract relevant content
       const submissionData = response.data.submission || {};
       const plugins = response.data.lastattempt?.submission?.plugins || [];
       
-      // Extraemos el texto de la entrega y los archivos adjuntos
+      // Extract submission text and attachments
       let submissionText = '';
       const files = [];
       
       for (const plugin of plugins) {
-        // Procesamos el plugin de texto en línea
+        // Process the online text plugin
         if (plugin.type === 'onlinetext') {
           const textField = plugin.editorfields?.find((field: any) => field.name === 'onlinetext');
           if (textField) {
@@ -519,7 +519,7 @@ class MoodleMcpServer {
           }
         }
         
-        // Procesamos el plugin de archivos
+        // Process the file plugin
         if (plugin.type === 'file') {
           const filesList = plugin.fileareas?.find((area: any) => area.area === 'submission_files');
           if (filesList && filesList.files) {
@@ -535,7 +535,7 @@ class MoodleMcpServer {
         }
       }
       
-      // Construimos el objeto de respuesta
+      // Build the response object
       const submissionContent = {
         assignment: args.assignmentId,
         userid: args.studentId,
@@ -569,7 +569,7 @@ class MoodleMcpServer {
           content: [
             {
               type: 'text',
-              text: `Error al obtener el contenido de la entrega: ${
+              text: `Error getting submission content: ${
                 error.response?.data?.message || error.message
               }`,
             },
@@ -600,12 +600,12 @@ class MoodleMcpServer {
         },
       });
 
-      // Procesamos la respuesta
+      // Process the response
       const result = {
         quizId: args.quizId,
         studentId: args.studentId,
         hasGrade: response.data.hasgrade,
-        grade: response.data.hasgrade ? response.data.grade : 'No calificado',
+        grade: response.data.hasgrade ? response.data.grade : 'Not graded',
       };
       
       return {
@@ -623,7 +623,7 @@ class MoodleMcpServer {
           content: [
             {
               type: 'text',
-              text: `Error al obtener la calificación del quiz: ${
+              text: `Error getting the quiz grade: ${
                 error.response?.data?.message || error.message
               }`,
             },
