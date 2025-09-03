@@ -250,6 +250,10 @@ class MoodleMcpServer {
                 type: 'number',
                 description: 'Optional limit for number of courses to return (default: 100)',
               },
+              getAllCourses: {
+                type: 'boolean',
+                description: 'Optional flag to attempt to get all courses using alternative methods (default: false)',
+              },
             },
             required: [],
           },
@@ -271,6 +275,59 @@ class MoodleMcpServer {
               includeResources: {
                 type: 'boolean',
                 description: 'Whether to include resource details (default: true)',
+              },
+            },
+            required: [],
+          },
+        },
+        {
+          name: 'get_courses_by_field',
+          description: 'Gets courses filtered by specific field values (e.g., category, shortname, fullname)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              field: {
+                type: 'string',
+                description: 'Field to filter by: category, shortname, fullname, idnumber, id',
+                enum: ['category', 'shortname', 'fullname', 'idnumber', 'id'],
+              },
+              value: {
+                type: 'string',
+                description: 'Value to search for in the specified field',
+              },
+              limit: {
+                type: 'number',
+                description: 'Optional limit for number of courses to return (default: 100)',
+              },
+            },
+            required: ['field', 'value'],
+          },
+        },
+        {
+          name: 'get_course_statistics',
+          description: 'Gets comprehensive statistics about courses including enrollment, completion, and activity metrics',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'number',
+                description: 'Optional course ID to get statistics for specific course (defaults to all courses)',
+              },
+              categoryId: {
+                type: 'number',
+                description: 'Optional category ID to filter statistics by category',
+              },
+              includeEnrollment: {
+                type: 'boolean',
+                description: 'Whether to include enrollment statistics (default: true)',
+              },
+              includeCompletion: {
+                type: 'boolean',
+                description: 'Whether to include completion statistics (default: true)',
+              },
+              includeActivity: {
+                type: 'boolean',
+                description: 'Whether to include activity statistics (default: true)',
               },
             },
             required: [],
@@ -302,6 +359,10 @@ class MoodleMcpServer {
             return await this.getCourses(request.params.arguments);
           case 'get_course_contents':
             return await this.getCourseContents(request.params.arguments);
+          case 'get_courses_by_field':
+            return await this.getCoursesByField(request.params.arguments);
+          case 'get_course_statistics':
+            return await this.getCourseStatistics(request.params.arguments);
           default:
             throw new McpError(
               ErrorCode.MethodNotFound,
@@ -684,58 +745,143 @@ class MoodleMcpServer {
   }
 
   private async getCourses(args: any) {
-    console.error('[API] Requesting all courses');
+    console.error('[API] Requesting courses');
     
     try {
-      // Build parameters for the API call
-      const params: any = {
-        wsfunction: 'core_course_get_courses',
-        moodlewsrestformat: 'json'
-      };
+      const getAllCourses = args.getAllCourses || false;
+      let allCourses: any[] = [];
       
-      // Add optional filters
-      if (args.categoryId) {
-        params.categoryid = args.categoryId;
-      }
-      
-      if (args.searchTerm) {
-        params.search = args.searchTerm;
-      }
-      
-      if (args.limit) {
-        params.limit = args.limit;
-      }
-      
-      const response = await this.axiosInstance.get('', { params });
-      
-      if (response.data && response.data.exception) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Moodle API error: ${response.data.message || 'Unknown error'}`,
-            },
-          ],
-          isError: true,
+      if (getAllCourses) {
+        // Try to get all courses by iterating through course IDs
+        console.error('[API] Attempting to get all courses using alternative method');
+        
+        // First get the standard list to see the highest ID
+        const standardResponse = await this.axiosInstance.get('', {
+          params: {
+            wsfunction: 'core_course_get_courses',
+            moodlewsrestformat: 'json'
+          }
+        });
+        
+        if (standardResponse.data && standardResponse.data.exception) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Moodle API error: ${standardResponse.data.message || 'Unknown error'}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+        
+        const standardCourses = Array.isArray(standardResponse.data) ? standardResponse.data : [];
+        const maxId = Math.max(...standardCourses.map((c: any) => c.id));
+        
+        console.error(`[API] Found ${standardCourses.length} courses in standard response, max ID: ${maxId}`);
+        
+        // Try to get more courses by checking for higher IDs
+        const batchSize = 50;
+        let currentId = maxId + 1;
+        let foundAdditionalCourses = 0;
+        
+        for (let batch = 0; batch < 10; batch++) { // Limit to 10 batches
+          const courseIds = [];
+          for (let i = 0; i < batchSize; i++) {
+            courseIds.push(currentId + i);
+          }
+          
+          try {
+            // Try to get course contents for these IDs to see if they exist
+            const promises = courseIds.map(async (id) => {
+              try {
+                const response = await this.axiosInstance.get('', {
+                  params: {
+                    wsfunction: 'core_course_get_contents',
+                    courseid: id,
+                    moodlewsrestformat: 'json'
+                  }
+                });
+                
+                if (!response.data.exception) {
+                  // Course exists, try to get its basic info
+                  return { id, exists: true };
+                }
+              } catch (error) {
+                // Course doesn't exist or no access
+              }
+              return { id, exists: false };
+            });
+            
+            const results = await Promise.all(promises);
+            const existingIds = results.filter(r => r.exists).map(r => r.id);
+            
+            if (existingIds.length === 0) {
+              break; // No more courses found
+            }
+            
+            foundAdditionalCourses += existingIds.length;
+            console.error(`[API] Found ${existingIds.length} additional courses in batch ${batch + 1}`);
+            
+            currentId += batchSize;
+          } catch (error) {
+            console.error(`[API] Error in batch ${batch + 1}:`, error);
+            break;
+          }
+        }
+        
+        allCourses = standardCourses;
+        console.error(`[API] Total courses found: ${standardCourses.length} (standard) + ${foundAdditionalCourses} (additional)`);
+        
+      } else {
+        // Standard API call
+        const params: any = {
+          wsfunction: 'core_course_get_courses',
+          moodlewsrestformat: 'json'
         };
+        
+        if (args.categoryId) {
+          params.categoryid = args.categoryId;
+        }
+        
+        if (args.searchTerm) {
+          params.search = args.searchTerm;
+        }
+        
+        const response = await this.axiosInstance.get('', { params });
+        
+        if (response.data && response.data.exception) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Moodle API error: ${response.data.message || 'Unknown error'}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+        
+        allCourses = Array.isArray(response.data) ? response.data : [];
       }
       
-      // Process and format the courses data
-      const courses = Array.isArray(response.data) ? response.data : [];
-      const limit = args.limit || 100;
-      const limitedCourses = courses.slice(0, limit);
+      // Apply limit if specified
+      if (args.limit) {
+        allCourses = allCourses.slice(0, args.limit);
+      }
       
       // Create summary statistics
       const summary = {
-        totalCourses: courses.length,
-        returnedCourses: limitedCourses.length,
-        categories: [...new Set(courses.map((c: any) => c.categoryid))].length,
-        activeCourses: courses.filter((c: any) => c.visible).length,
-        inactiveCourses: courses.filter((c: any) => !c.visible).length
+        totalCourses: allCourses.length,
+        returnedCourses: allCourses.length,
+        method: getAllCourses ? 'alternative' : 'standard',
+        categories: [...new Set(allCourses.map((c: any) => c.categoryid))].length,
+        activeCourses: allCourses.filter((c: any) => c.visible).length,
+        inactiveCourses: allCourses.filter((c: any) => !c.visible).length
       };
       
       // Format courses for better readability
-      const formattedCourses = limitedCourses.map((course: any) => ({
+      const formattedCourses = allCourses.map((course: any) => ({
         id: course.id,
         shortname: course.shortname,
         fullname: course.fullname,
@@ -901,6 +1047,292 @@ class MoodleMcpServer {
             {
               type: 'text',
               text: `Error getting course contents: ${
+                error.response?.data?.message || error.message
+              }`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      throw error;
+    }
+  }
+
+  private async getCoursesByField(args: any) {
+    const { field, value, limit = 100 } = args;
+    
+    console.error(`[API] Requesting courses by field: ${field} = ${value}`);
+    
+    try {
+      const response = await this.axiosInstance.get('', {
+        params: {
+          wsfunction: 'core_course_get_courses_by_field',
+          field: field,
+          value: value,
+          moodlewsrestformat: 'json'
+        },
+      });
+
+      if (response.data && response.data.exception) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Moodle API error: ${response.data.message || 'Unknown error'}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // Process and format the courses data
+      const courses = Array.isArray(response.data) ? response.data : [];
+      const limitedCourses = courses.slice(0, limit);
+      
+      // Create summary statistics
+      const summary = {
+        field: field,
+        value: value,
+        totalCourses: courses.length,
+        returnedCourses: limitedCourses.length,
+        categories: [...new Set(courses.map((c: any) => c.categoryid))].length,
+        activeCourses: courses.filter((c: any) => c.visible).length,
+        inactiveCourses: courses.filter((c: any) => !c.visible).length
+      };
+      
+      // Format courses for better readability
+      const formattedCourses = limitedCourses.map((course: any) => ({
+        id: course.id,
+        shortname: course.shortname,
+        fullname: course.fullname,
+        categoryid: course.categoryid,
+        startdate: course.startdate ? new Date(course.startdate * 1000).toISOString() : null,
+        enddate: course.enddate ? new Date(course.enddate * 1000).toISOString() : null,
+        visible: course.visible,
+        summary: course.summary ? course.summary.substring(0, 100) + '...' : null,
+        timecreated: course.timecreated ? new Date(course.timecreated * 1000).toISOString() : null,
+        timemodified: course.timemodified ? new Date(course.timemodified * 1000).toISOString() : null
+      }));
+      
+      const result = {
+        summary,
+        courses: formattedCourses
+      };
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('[Error]', error);
+      if (axios.isAxiosError(error)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error getting courses by field: ${
+                error.response?.data?.message || error.message
+              }`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      throw error;
+    }
+  }
+
+  private async getCourseStatistics(args: any) {
+    const { 
+      courseId, 
+      categoryId, 
+      includeEnrollment = true, 
+      includeCompletion = true, 
+      includeActivity = true 
+    } = args;
+    
+    console.error(`[API] Requesting course statistics${courseId ? ` for course ${courseId}` : ''}${categoryId ? ` in category ${categoryId}` : ''}`);
+    
+    try {
+      let courses: any[] = [];
+      
+      // Get courses based on filters
+      if (courseId) {
+        // Get all courses and filter by ID (since courseids parameter doesn't work reliably)
+        const response = await this.axiosInstance.get('', {
+          params: {
+            wsfunction: 'core_course_get_courses',
+            moodlewsrestformat: 'json'
+          },
+        });
+        const allCourses = Array.isArray(response.data) ? response.data : [];
+        courses = allCourses.filter((c: any) => c.id === courseId);
+      } else if (categoryId) {
+        // Get courses in specific category
+        const response = await this.axiosInstance.get('', {
+          params: {
+            wsfunction: 'core_course_get_courses',
+            categoryid: categoryId,
+            moodlewsrestformat: 'json'
+          },
+        });
+        courses = Array.isArray(response.data) ? response.data : [];
+      } else {
+        // Get all courses for general statistics
+        const response = await this.axiosInstance.get('', {
+          params: {
+            wsfunction: 'core_course_get_courses',
+            moodlewsrestformat: 'json'
+          },
+        });
+        courses = Array.isArray(response.data) ? response.data : [];
+      }
+
+      if (courses.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'No courses found matching the criteria.',
+            },
+          ],
+        };
+      }
+
+      // Calculate basic statistics
+      const basicStats = {
+        totalCourses: courses.length,
+        activeCourses: courses.filter((c: any) => c.visible).length,
+        inactiveCourses: courses.filter((c: any) => !c.visible).length,
+        categories: [...new Set(courses.map((c: any) => c.categoryid))].length,
+        averageStartDate: courses.filter((c: any) => c.startdate).length > 0 
+          ? new Date(courses.filter((c: any) => c.startdate).reduce((sum: number, c: any) => sum + c.startdate, 0) / courses.filter((c: any) => c.startdate).length * 1000).toISOString()
+          : null,
+        averageEndDate: courses.filter((c: any) => c.enddate).length > 0
+          ? new Date(courses.filter((c: any) => c.enddate).reduce((sum: number, c: any) => sum + c.enddate, 0) / courses.filter((c: any) => c.enddate).length * 1000).toISOString()
+          : null
+      };
+
+      // Enrollment statistics (if requested and we have specific course)
+      let enrollmentStats = null;
+      if (includeEnrollment && courseId) {
+        try {
+          const enrollmentResponse = await this.axiosInstance.get('', {
+            params: {
+              wsfunction: 'core_enrol_get_enrolled_users',
+              courseid: courseId,
+              moodlewsrestformat: 'json'
+            },
+          });
+          
+          if (!enrollmentResponse.data.exception) {
+            const enrolledUsers = Array.isArray(enrollmentResponse.data) ? enrollmentResponse.data : [];
+            enrollmentStats = {
+              totalEnrolled: enrolledUsers.length,
+              students: enrolledUsers.filter((u: any) => u.roles.some((r: any) => r.shortname === 'student')).length,
+              teachers: enrolledUsers.filter((u: any) => u.roles.some((r: any) => r.shortname === 'teacher')).length,
+              managers: enrolledUsers.filter((u: any) => u.roles.some((r: any) => r.shortname === 'manager')).length
+            };
+          }
+        } catch (error) {
+          console.error('[Warning] Could not fetch enrollment data:', error);
+        }
+      }
+
+      // Completion statistics (if requested and we have specific course)
+      let completionStats = null;
+      if (includeCompletion && courseId) {
+        try {
+          const completionResponse = await this.axiosInstance.get('', {
+            params: {
+              wsfunction: 'core_completion_get_activities_completion_status',
+              userid: 0, // 0 means all users
+              courseid: courseId,
+              moodlewsrestformat: 'json'
+            },
+          });
+          
+          if (!completionResponse.data.exception) {
+            const completionData = completionResponse.data;
+            completionStats = {
+              totalActivities: completionData.length || 0,
+              completedActivities: completionData.filter((a: any) => a.state === 1).length || 0,
+              incompleteActivities: completionData.filter((a: any) => a.state === 0).length || 0
+            };
+          }
+        } catch (error) {
+          console.error('[Warning] Could not fetch completion data:', error);
+        }
+      }
+
+      // Activity statistics (if requested and we have specific course)
+      let activityStats = null;
+      if (includeActivity && courseId) {
+        try {
+          const activityResponse = await this.axiosInstance.get('', {
+            params: {
+              wsfunction: 'core_course_get_contents',
+              courseid: courseId,
+              moodlewsrestformat: 'json'
+            },
+          });
+          
+          if (!activityResponse.data.exception) {
+            const courseContents = Array.isArray(activityResponse.data) ? activityResponse.data : [];
+            const activities = courseContents.flatMap((section: any) => 
+              section.modules ? section.modules : []
+            );
+            
+            activityStats = {
+              totalSections: courseContents.length,
+              totalActivities: activities.length,
+              resourceCount: activities.filter((a: any) => a.modname === 'resource').length,
+              assignmentCount: activities.filter((a: any) => a.modname === 'assign').length,
+              quizCount: activities.filter((a: any) => a.modname === 'quiz').length,
+              forumCount: activities.filter((a: any) => a.modname === 'forum').length,
+              otherActivities: activities.filter((a: any) => !['resource', 'assign', 'quiz', 'forum'].includes(a.modname)).length
+            };
+          }
+        } catch (error) {
+          console.error('[Warning] Could not fetch activity data:', error);
+        }
+      }
+
+      // Compile final statistics
+      const statistics = {
+        basic: basicStats,
+        enrollment: enrollmentStats,
+        completion: completionStats,
+        activity: activityStats,
+        filters: {
+          courseId,
+          categoryId,
+          includeEnrollment,
+          includeCompletion,
+          includeActivity
+        }
+      };
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(statistics, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('[Error]', error);
+      if (axios.isAxiosError(error)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error getting course statistics: ${
                 error.response?.data?.message || error.message
               }`,
             },
