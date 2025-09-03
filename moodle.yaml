@@ -1,0 +1,298 @@
+name: moodle-mcp-server
+description: MCP server for Moodle Learning Management System integration
+version: 0.1.0
+author: Skylite Tek
+repository: https://github.com/skylite-tek/moodle-mcp-server
+license: MIT
+tags:
+  - moodle
+  - lms
+  - education
+  - learning
+  - courses
+  - students
+  - assignments
+  - quizzes
+  - mcp
+  - model-context-protocol
+
+capabilities:
+  - course-management
+  - student-management
+  - assignment-management
+  - quiz-management
+  - content-analysis
+  - statistics
+  - admin-tools
+
+tools:
+  # Course Management Tools (Admin)
+  - name: get_courses
+    description: Retrieves the list of all available courses on the Moodle platform
+    parameters:
+      - name: categoryId
+        type: number
+        description: Optional category ID to filter courses by category
+        required: false
+      - name: searchTerm
+        type: string
+        description: Optional search term to filter courses by name
+        required: false
+      - name: limit
+        type: number
+        description: Optional limit for number of courses to return (default: 100)
+        required: false
+      - name: getAllCourses
+        type: boolean
+        description: Optional flag to attempt to get all courses using alternative methods (default: false)
+        required: false
+
+  - name: get_courses_by_field
+    description: Gets courses filtered by specific field values
+    parameters:
+      - name: field
+        type: string
+        description: Field to filter by: category, shortname, fullname, idnumber, id
+        enum: [category, shortname, fullname, idnumber, id]
+        required: true
+      - name: value
+        type: string
+        description: Value to search for in the specified field
+        required: true
+      - name: limit
+        type: number
+        description: Optional limit for number of courses to return (default: 100)
+        required: false
+
+  - name: get_course_statistics
+    description: Provides comprehensive statistics about courses
+    parameters:
+      - name: courseId
+        type: number
+        description: Optional course ID to get statistics for specific course
+        required: false
+      - name: categoryId
+        type: number
+        description: Optional category ID to filter statistics by category
+        required: false
+      - name: includeEnrollment
+        type: boolean
+        description: Whether to include enrollment statistics (default: true)
+        required: false
+      - name: includeCompletion
+        type: boolean
+        description: Whether to include completion statistics (default: true)
+        required: false
+      - name: includeActivity
+        type: boolean
+        description: Whether to include activity statistics (default: true)
+        required: false
+
+  # Course Content Tools
+  - name: get_course_contents
+    description: Retrieves the complete content structure of a specific course
+    parameters:
+      - name: courseId
+        type: number
+        description: Course ID to get contents for (defaults to configured course if not provided)
+        required: false
+      - name: includeModules
+        type: boolean
+        description: Whether to include detailed module information (default: true)
+        required: false
+      - name: includeResources
+        type: boolean
+        description: Whether to include resource details (default: true)
+        required: false
+
+  # Student Management Tools
+  - name: list_students
+    description: Retrieves the list of students enrolled in the course
+    parameters:
+      - name: courseId
+        type: number
+        description: Course ID to get students for (defaults to configured course if not provided)
+        required: false
+
+  # Assignment Management Tools
+  - name: get_assignments
+    description: Retrieves all available assignments in the course
+    parameters:
+      - name: courseId
+        type: number
+        description: Course ID to get assignments for (defaults to configured course if not provided)
+        required: false
+
+  - name: get_student_submissions
+    description: Examines a student's submissions for a specific assignment
+    parameters:
+      - name: assignmentId
+        type: number
+        description: Assignment ID to get submissions for
+        required: true
+      - name: studentId
+        type: number
+        description: Optional student ID to filter submissions
+        required: false
+      - name: courseId
+        type: number
+        description: Course ID (defaults to configured course if not provided)
+        required: false
+
+  - name: provide_assignment_feedback
+    description: Provides grades and comments for a student's submission
+    parameters:
+      - name: studentId
+        type: number
+        description: Student ID
+        required: true
+      - name: assignmentId
+        type: number
+        description: Assignment ID
+        required: true
+      - name: grade
+        type: number
+        description: Numeric grade to assign
+        required: true
+      - name: feedback
+        type: string
+        description: Text of the feedback to provide
+        required: true
+
+  # Quiz Management Tools
+  - name: get_quizzes
+    description: Retrieves all available quizzes in the course
+    parameters:
+      - name: courseId
+        type: number
+        description: Course ID to get quizzes for (defaults to configured course if not provided)
+        required: false
+
+  - name: get_quiz_attempts
+    description: Examines a student's attempts on a specific quiz
+    parameters:
+      - name: quizId
+        type: number
+        description: Quiz ID to get attempts for
+        required: true
+      - name: studentId
+        type: number
+        description: Optional student ID to filter attempts
+        required: false
+      - name: courseId
+        type: number
+        description: Course ID (defaults to configured course if not provided)
+        required: false
+
+  - name: provide_quiz_feedback
+    description: Provides comments for a quiz attempt
+    parameters:
+      - name: attemptId
+        type: number
+        description: Quiz attempt ID
+        required: true
+      - name: feedback
+        type: string
+        description: Text of the feedback to provide
+        required: true
+
+installation:
+  type: npm
+  command: npm install -g moodle-mcp-server
+  requirements:
+    - Node.js 14+
+    - npm or yarn
+
+configuration:
+  environment_variables:
+    - name: MOODLE_API_URL
+      description: URL to your Moodle webservice endpoint
+      example: https://your-moodle.com/webservice/rest/server.php
+      required: true
+    - name: MOODLE_API_TOKEN
+      description: Your Moodle API token with appropriate permissions
+      example: 2d00b9356b469277f74d9631af0e4a4a
+      required: true
+    - name: MOODLE_COURSE_ID
+      description: Default course ID for course-specific operations (optional for admin tools)
+      example: 1
+      required: false
+
+  claude_desktop_config:
+    macos: ~/Library/Application Support/Claude/claude_desktop_config.json
+    windows: %APPDATA%/Claude/claude_desktop_config.json
+    linux: ~/.config/Claude/claude_desktop_config.json
+
+usage_examples:
+  - description: "List all courses on the platform"
+    command: "get_courses with getAllCourses: true"
+    
+  - description: "Get statistics for a specific course"
+    command: "get_course_statistics with courseId: 1315, includeEnrollment: true, includeActivity: true"
+    
+  - description: "Search for courses by name"
+    command: "get_courses_by_field with field: fullname, value: DevOps"
+    
+  - description: "Analyze course content structure"
+    command: "get_course_contents with courseId: 1315"
+    
+  - description: "View enrolled students"
+    command: "list_students with courseId: 1315"
+    
+  - description: "Get course assignments"
+    command: "get_assignments with courseId: 1315"
+    
+  - description: "Provide feedback on assignment"
+    command: "provide_assignment_feedback with studentId: 123, assignmentId: 456, grade: 85, feedback: 'Excellent work! Great attention to detail.'"
+
+features:
+  - name: Platform-wide Course Management
+    description: Access and analyze all courses across the Moodle platform
+    admin_required: true
+    
+  - name: Course Content Analysis
+    description: Deep dive into course structures, modules, and activities
+    admin_required: false
+    
+  - name: Student Management
+    description: View enrolled students and their progress
+    admin_required: false
+    
+  - name: Assignment & Quiz Management
+    description: Handle assignments, submissions, and provide feedback
+    admin_required: false
+    
+  - name: Comprehensive Statistics
+    description: Get detailed analytics about courses, enrollments, and activities
+    admin_required: false
+
+compatibility:
+  moodle_versions:
+    - "4.0+"
+    - "4.1+"
+    - "4.2+"
+    - "4.3+"
+    - "4.4+"
+  
+  node_versions:
+    - "14.x"
+    - "16.x"
+    - "18.x"
+    - "20.x"
+    - "24.x"
+
+security:
+  - description: "API token authentication required"
+  - description: "Supports role-based access control"
+  - description: "No data is stored locally"
+  - description: "All communication via HTTPS"
+
+support:
+  - description: "GitHub Issues for bug reports"
+  - description: "Documentation in README.md"
+  - description: "MCP Inspector for debugging"
+
+related_servers:
+  - name: elasticsearch-mcp-server
+    description: "Similar MCP server for Elasticsearch integration"
+    url: "https://github.com/obot-platform/mcp-catalog/blob/main/elasticsearch.yaml"
