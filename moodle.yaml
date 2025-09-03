@@ -2,7 +2,7 @@ name: moodle-mcp-server
 description: MCP server for Moodle Learning Management System integration
 version: 0.1.0
 author: Skylite Tek
-repository: https://github.com/skylite-tek/moodle-mcp-server
+repository: https://github.com/mihai-satmarean/moodle-mcp-server
 license: MIT
 tags:
   - moodle
@@ -211,7 +211,7 @@ configuration:
       required: true
     - name: MOODLE_API_TOKEN
       description: Your Moodle API token with appropriate permissions
-      example: 2d00b9356b469277f74d9631af0e4a4a
+      example: 1d00b9356b469277f74d9631af0e4a4a
       required: true
     - name: MOODLE_COURSE_ID
       description: Default course ID for course-specific operations (optional for admin tools)
@@ -291,8 +291,3 @@ support:
   - description: "GitHub Issues for bug reports"
   - description: "Documentation in README.md"
   - description: "MCP Inspector for debugging"
-
-related_servers:
-  - name: elasticsearch-mcp-server
-    description: "Similar MCP server for Elasticsearch integration"
-    url: "https://github.com/obot-platform/mcp-catalog/blob/main/elasticsearch.yaml"
