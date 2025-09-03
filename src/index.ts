@@ -232,6 +232,28 @@ class MoodleMcpServer {
             required: ['studentId', 'quizId'],
           },
         },
+        {
+          name: 'get_courses',
+          description: 'Gets the list of all available courses on the Moodle platform (Admin tool)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              categoryId: {
+                type: 'number',
+                description: 'Optional category ID to filter courses by category',
+              },
+              searchTerm: {
+                type: 'string',
+                description: 'Optional search term to filter courses by name',
+              },
+              limit: {
+                type: 'number',
+                description: 'Optional limit for number of courses to return (default: 100)',
+              },
+            },
+            required: [],
+          },
+        },
       ],
     }));
 
@@ -254,6 +276,8 @@ class MoodleMcpServer {
             return await this.getSubmissionContent(request.params.arguments);
           case 'get_quiz_grade':
             return await this.getQuizGrade(request.params.arguments);
+          case 'get_courses':
+            return await this.getCourses(request.params.arguments);
           default:
             throw new McpError(
               ErrorCode.MethodNotFound,
@@ -624,6 +648,103 @@ class MoodleMcpServer {
             {
               type: 'text',
               text: `Error getting the quiz grade: ${
+                error.response?.data?.message || error.message
+              }`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      throw error;
+    }
+  }
+
+  private async getCourses(args: any) {
+    console.error('[API] Requesting all courses');
+    
+    try {
+      // Build parameters for the API call
+      const params: any = {
+        wsfunction: 'core_course_get_courses',
+        moodlewsrestformat: 'json'
+      };
+      
+      // Add optional filters
+      if (args.categoryId) {
+        params.categoryid = args.categoryId;
+      }
+      
+      if (args.searchTerm) {
+        params.search = args.searchTerm;
+      }
+      
+      if (args.limit) {
+        params.limit = args.limit;
+      }
+      
+      const response = await this.axiosInstance.get('', { params });
+      
+      if (response.data && response.data.exception) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Moodle API error: ${response.data.message || 'Unknown error'}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      
+      // Process and format the courses data
+      const courses = Array.isArray(response.data) ? response.data : [];
+      const limit = args.limit || 100;
+      const limitedCourses = courses.slice(0, limit);
+      
+      // Create summary statistics
+      const summary = {
+        totalCourses: courses.length,
+        returnedCourses: limitedCourses.length,
+        categories: [...new Set(courses.map((c: any) => c.categoryid))].length,
+        activeCourses: courses.filter((c: any) => c.visible).length,
+        inactiveCourses: courses.filter((c: any) => !c.visible).length
+      };
+      
+      // Format courses for better readability
+      const formattedCourses = limitedCourses.map((course: any) => ({
+        id: course.id,
+        shortname: course.shortname,
+        fullname: course.fullname,
+        categoryid: course.categoryid,
+        startdate: course.startdate ? new Date(course.startdate * 1000).toISOString() : null,
+        enddate: course.enddate ? new Date(course.enddate * 1000).toISOString() : null,
+        visible: course.visible,
+        summary: course.summary ? course.summary.substring(0, 100) + '...' : null,
+        timecreated: course.timecreated ? new Date(course.timecreated * 1000).toISOString() : null,
+        timemodified: course.timemodified ? new Date(course.timemodified * 1000).toISOString() : null
+      }));
+      
+      const result = {
+        summary,
+        courses: formattedCourses
+      };
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('[Error]', error);
+      if (axios.isAxiosError(error)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error getting courses: ${
                 error.response?.data?.message || error.message
               }`,
             },
