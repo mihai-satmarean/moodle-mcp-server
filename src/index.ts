@@ -254,6 +254,28 @@ class MoodleMcpServer {
             required: [],
           },
         },
+        {
+          name: 'get_course_contents',
+          description: 'Gets the complete content structure of a specific course including modules, resources, and activities',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'number',
+                description: 'Course ID to get contents for (defaults to configured course if not provided)',
+              },
+              includeModules: {
+                type: 'boolean',
+                description: 'Whether to include detailed module information (default: true)',
+              },
+              includeResources: {
+                type: 'boolean',
+                description: 'Whether to include resource details (default: true)',
+              },
+            },
+            required: [],
+          },
+        },
       ],
     }));
 
@@ -278,6 +300,8 @@ class MoodleMcpServer {
             return await this.getQuizGrade(request.params.arguments);
           case 'get_courses':
             return await this.getCourses(request.params.arguments);
+          case 'get_course_contents':
+            return await this.getCourseContents(request.params.arguments);
           default:
             throw new McpError(
               ErrorCode.MethodNotFound,
@@ -745,6 +769,138 @@ class MoodleMcpServer {
             {
               type: 'text',
               text: `Error getting courses: ${
+                error.response?.data?.message || error.message
+              }`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      throw error;
+    }
+  }
+
+  private async getCourseContents(args: any) {
+    const courseId = args.courseId || MOODLE_COURSE_ID;
+    const includeModules = args.includeModules !== false; // default to true
+    const includeResources = args.includeResources !== false; // default to true
+    
+    console.error(`[API] Requesting course contents for course ${courseId}`);
+    
+    try {
+      const response = await this.axiosInstance.get('', {
+        params: {
+          wsfunction: 'core_course_get_contents',
+          courseid: courseId,
+        },
+      });
+
+      if (response.data && response.data.exception) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Moodle API error: ${response.data.message || 'Unknown error'}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // Process and format the course contents
+      const sections = Array.isArray(response.data) ? response.data : [];
+      
+      // Create summary statistics
+      const summary = {
+        courseId: courseId,
+        totalSections: sections.length,
+        totalModules: sections.reduce((total: number, section: any) => 
+          total + (section.modules ? section.modules.length : 0), 0),
+        totalResources: sections.reduce((total: number, section: any) => 
+          total + (section.modules ? section.modules.filter((m: any) => m.modname === 'resource').length : 0), 0),
+        totalActivities: sections.reduce((total: number, section: any) => 
+          total + (section.modules ? section.modules.filter((m: any) => m.modname !== 'resource').length : 0), 0),
+        hasVisibleSections: sections.some((s: any) => s.visible),
+        hasHiddenSections: sections.some((s: any) => !s.visible)
+      };
+
+      // Format sections for better readability
+      const formattedSections = sections.map((section: any) => {
+        const formattedSection: any = {
+          id: section.id,
+          name: section.name,
+          summary: section.summary ? section.summary.substring(0, 150) + '...' : null,
+          visible: section.visible,
+          section: section.section,
+          summaryformat: section.summaryformat,
+          modules: []
+        };
+
+        // Add modules if requested and available
+        if (includeModules && section.modules && Array.isArray(section.modules)) {
+          formattedSection.modules = section.modules.map((module: any) => {
+            const formattedModule: any = {
+              id: module.id,
+              name: module.name,
+              modname: module.modname,
+              modplural: module.modplural,
+              instance: module.instance,
+              visible: module.visible,
+              visibleoncoursepage: module.visibleoncoursepage,
+              indent: module.indent,
+              url: module.url,
+              description: module.description ? module.description.substring(0, 100) + '...' : null,
+              descriptionformat: module.descriptionformat
+            };
+
+            // Add resource-specific information if requested
+            if (includeResources && module.modname === 'resource' && module.contents) {
+              formattedModule.resourceInfo = {
+                fileCount: module.contents.length,
+                fileTypes: [...new Set(module.contents.map((c: any) => c.mimetype))],
+                totalSize: module.contents.reduce((total: number, c: any) => total + (c.filesize || 0), 0)
+              };
+            }
+
+            // Add activity-specific information
+            if (module.modname !== 'resource') {
+              formattedModule.activityInfo = {
+                type: module.modname,
+                hasCompletion: module.completion !== undefined,
+                completion: module.completion,
+                hasGrade: module.grade !== undefined,
+                grade: module.grade
+              };
+            }
+
+            return formattedModule;
+          });
+        }
+
+        return formattedSection;
+      });
+
+      const result = {
+        summary,
+        sections: formattedSections
+      };
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('[Error]', error);
+      if (axios.isAxiosError(error)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error getting course contents: ${
                 error.response?.data?.message || error.message
               }`,
             },
