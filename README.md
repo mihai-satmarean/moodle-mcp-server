@@ -4,6 +4,27 @@ An MCP (Model Context Protocol) server that enables LLMs to interact with the Mo
 
 ## Features
 
+### Course Management Tools (Admin)
+- `get_courses` - Retrieves the list of all available courses on the Moodle platform
+  - Supports filtering by category, search terms, and limit
+  - Includes option to get all courses using alternative methods for platforms with large course counts
+  - Returns course details: ID, shortname, fullname, category, dates, visibility, and summary
+- `get_courses_by_field` - Gets courses filtered by specific field values
+  - Supports filtering by: category, shortname, fullname, idnumber, or id
+  - Useful for finding specific courses or courses in particular categories
+- `get_course_statistics` - Provides comprehensive statistics about courses
+  - Basic statistics: total courses, active/inactive counts, categories, average dates
+  - Enrollment statistics: total enrolled users, students, teachers, managers
+  - Activity statistics: sections, activities, resources, assignments, quizzes, forums
+  - Completion statistics: activity completion status (when available)
+  - Can be filtered by specific course ID or category ID
+
+### Course Content Tools
+- `get_course_contents` - Retrieves the complete content structure of a specific course
+  - Includes modules, resources, and activities organized by sections
+  - Provides detailed information about each course component
+  - Useful for course analysis and content management
+
 ### Student Management Tools
 - `list_students` - Retrieves the list of students enrolled in the course
   - Displays ID, name, email, and last access time for each student
@@ -28,7 +49,7 @@ An MCP (Model Context Protocol) server that enables LLMs to interact with the Mo
 
 - Node.js (v14 or higher)
 - Moodle API token with appropriate permissions
-- Moodle course ID
+- Moodle course ID (optional for admin tools, required for course-specific operations)
 
 ## Installation
 
@@ -47,7 +68,7 @@ npm install
 ```
 MOODLE_API_URL=https://your-moodle.com/webservice/rest/server.php
 MOODLE_API_TOKEN=your_api_token
-MOODLE_COURSE_ID=1  # Replace with your course ID
+MOODLE_COURSE_ID=1  # Optional: Replace with your course ID for course-specific operations
 ```
 
 4. Build the server:
@@ -104,10 +125,40 @@ For Windows users, the paths would use backslashes:
 }
 ```
 
-Once configured, Claude will be able to interact with your Moodle course to:
+Once configured, Claude will be able to interact with your Moodle platform to:
+
+**Course Management (Admin):**
+- View and search all available courses across the platform
+- Get comprehensive statistics about courses, enrollments, and activities
+- Filter courses by category, name, or other criteria
+- Analyze course content structures and activity distributions
+
+**Course Content Analysis:**
+- Examine detailed course structures and content organization
+- View modules, resources, assignments, and other activities
+- Analyze course complexity and resource distribution
+
+**Student & Assignment Management:**
 - View the list of students and their submissions
 - Provide comments and grades for assignments
 - Examine quiz attempts and offer feedback
+
+## Admin vs Course-Specific Operations
+
+The MCP server supports two types of operations:
+
+**Admin Operations** (no course ID required):
+- `get_courses` - List all courses on the platform
+- `get_courses_by_field` - Search courses by various criteria
+- `get_course_statistics` - Get platform-wide or category statistics
+
+**Course-Specific Operations** (requires course ID):
+- `get_course_contents` - Analyze specific course structure
+- `list_students` - View enrolled students
+- `get_assignments` - Manage course assignments
+- `get_quizzes` - Handle course quizzes
+
+For admin operations, you only need the Moodle API URL and token. For course-specific operations, set the `MOODLE_COURSE_ID` environment variable.
 
 ## Development
 
