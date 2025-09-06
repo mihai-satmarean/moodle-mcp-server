@@ -78,6 +78,11 @@ env:
     sensitive: false
     description: Default course ID for course-specific operations (optional for admin tools)
 
-runtime: npx
-npxConfig:
-  package: 'moodle-mcp-server@latest'
+runtime: local
+startCommand:
+  type: stdio
+  configSchema:
+    {}
+  commandFunction: |
+    (config) => ({ command: 'node', args: ['./build/index.js'] })
+  exampleConfig: {}
