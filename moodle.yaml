@@ -78,6 +78,6 @@ env:
     sensitive: false
     description: Default course ID for course-specific operations (optional for admin tools)
 
-runtime: uvx
-uvxConfig:
+runtime: npx
+npxConfig:
   package: 'moodle-mcp-server@latest'

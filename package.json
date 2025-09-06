@@ -1,8 +1,27 @@
 {
   "name": "moodle-mcp-server",
   "version": "0.1.0",
-  "description": "Moddle MCP server",
-  "private": true,
+  "description": "MCP server for Moodle Learning Management System integration",
+  "private": false,
+  "homepage": "https://github.com/mihai-satmarean/moodle-mcp-server",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mihai-satmarean/moodle-mcp-server.git"
+  },
+  "keywords": [
+    "moodle",
+    "lms",
+    "education",
+    "learning",
+    "courses",
+    "students",
+    "assignments",
+    "quizzes",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "author": "Mihai Satmarean",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "moodle-mcp-server": "./build/index.js"
