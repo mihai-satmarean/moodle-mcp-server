@@ -78,11 +78,10 @@ env:
     sensitive: false
     description: Default course ID for course-specific operations (optional for admin tools)
 
-runtime: local
-startCommand:
-  type: stdio
-  configSchema:
-    {}
-  commandFunction: |
-    (config) => ({ command: 'node', args: ['./build/index.js'] })
-  exampleConfig: {}
+runtime: containerized
+containerizedConfig:
+  image: 'moodle-mcp-server:latest'
+  command: 'node'
+  args: ['./build/index.js']
+  port: 3000
+  path: '/mcp'
