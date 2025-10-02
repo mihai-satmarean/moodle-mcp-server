@@ -80,7 +80,7 @@ env:
 
 runtime: containerized
 containerizedConfig:
-  image: 'moodle-mcp-server:latest'
+  image: 'ghcr.io/mihai-satmarean/moodle-mcp-server:latest'
   command: 'node'
   args: ['./build/index.js']
   port: 3000
