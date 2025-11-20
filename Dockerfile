@@ -1,32 +1,32 @@
-# Use Node.js 20 Alpine for smaller image size
-FROM node:20-alpine
+# Production image using obot's base
+FROM ghcr.io/obot-platform/mcp-images-phat:main
 
-# Set working directory
-WORKDIR /app
+# Copy the pre-built application (build locally first)
+COPY build/index.js ./moodle-mcp-server
 
-# Copy package files
-COPY package*.json ./
+USER root
 
-# Install all dependencies (including dev dependencies for build)
-RUN npm ci --ignore-scripts
+# Make executable
+RUN chmod +x ./moodle-mcp-server
 
-# Copy source code
-COPY . .
+RUN cat > nanobot.yaml <<'EOF'
+publish:
+  mcpServers: [server]
 
-# Build the application
-RUN npm run build
+mcpServers:
+  server:
+    command: ./moodle-mcp-server
+    args: [stdio]
+    env:
+      MOODLE_API_URL: ${MOODLE_API_URL}
+      MOODLE_API_TOKEN: ${MOODLE_API_TOKEN}
+      MOODLE_COURSE_ID: ${MOODLE_COURSE_ID}
+EOF
 
-# Remove dev dependencies to reduce image size
-RUN npm prune --production
+RUN chown 1000 nanobot.yaml
 
-# Make the built file executable
-RUN chmod +x build/index.js
+ENTRYPOINT ["nanobot"]
 
-# Expose port (this will be overridden by Obot)
-EXPOSE 3000
+CMD ["run", "--listen-address", ":3000", "-e", "MOODLE_API_URL", "-e", "MOODLE_API_TOKEN", "-e", "MOODLE_COURSE_ID", "./nanobot.yaml"]
 
-# Set environment variables (these will be overridden by Obot)
-ENV NODE_ENV=production
-
-# Default command (this will be overridden by Obot)
-CMD ["node", "./build/index.js"]
+USER 1000
