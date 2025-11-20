@@ -83,5 +83,5 @@ containerizedConfig:
   image: 'ghcr.io/mihai-satmarean/moodle-mcp-server:latest'
   command: 'node'
   args: ['./build/index.js']
-  port: 3000
+  port: 8099
   path: '/mcp'
