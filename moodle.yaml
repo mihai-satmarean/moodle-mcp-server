@@ -77,6 +77,11 @@ env:
     required: false
     sensitive: false
     description: Default course ID for course-specific operations (optional for admin tools)
+  - key: PORT
+    name: Server Port
+    required: false
+    sensitive: false
+    description: Port for the MCP server to listen on (default 3000)
 
 runtime: kubernetes
 containerizedConfig:
@@ -85,3 +90,5 @@ containerizedConfig:
   args: ['./build/index.js']
   port: 3000
   path: '/mcp'
+  env:
+    PORT: "3000"

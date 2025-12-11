@@ -25,8 +25,11 @@ EOF
 
 RUN chown 1000 nanobot.yaml
 
-ENTRYPOINT ["nanobot"]
+# Set default PORT if not provided
+ENV PORT=3000
 
-CMD ["run", "--listen-address", ":3000", "-e", "MOODLE_API_URL", "-e", "MOODLE_API_TOKEN", "-e", "MOODLE_COURSE_ID", "./nanobot.yaml"]
+ENTRYPOINT ["sh", "-c"]
+
+CMD ["nanobot run --listen-address :${PORT} -e MOODLE_API_URL -e MOODLE_API_TOKEN -e MOODLE_COURSE_ID ./nanobot.yaml"]
 
 USER 1000
