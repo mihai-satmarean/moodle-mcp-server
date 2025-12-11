@@ -87,6 +87,6 @@ runtime: containerized
 containerizedConfig:
   image: 'ghcr.io/mihai-satmarean/moodle-mcp-server:latest'
   port: 3000
-  path: '/mcp'
+  path: '/'
   env:
     PORT: "3000"
