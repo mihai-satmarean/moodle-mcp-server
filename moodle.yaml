@@ -83,7 +83,7 @@ env:
     sensitive: false
     description: Port for the MCP server to listen on (default 3000)
 
-runtime: kubernetes
+runtime: containerized
 containerizedConfig:
   image: 'ghcr.io/mihai-satmarean/moodle-mcp-server:latest'
   port: 3000
