@@ -17,8 +17,8 @@ publish:
 
 mcpServers:
   server:
-    command: ./moodle-mcp-server
-    args: [stdio]
+    command: node
+    args: [./moodle-mcp-server]
     env:
       MOODLE_API_URL: ${MOODLE_API_URL}
       MOODLE_API_TOKEN: ${MOODLE_API_TOKEN}
