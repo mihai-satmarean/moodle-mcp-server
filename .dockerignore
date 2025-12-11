@@ -1,4 +1,4 @@
-node_modules
+# node_modules - needed in Docker image
 npm-debug.log
 .env
 .env.local
@@ -17,3 +17,7 @@ coverage
 .vscode
 .idea
 *.log
+
+
+
+

@@ -1,8 +1,10 @@
 # Production image using obot's base
 FROM ghcr.io/obot-platform/mcp-images-phat:main
 
-# Copy the pre-built application (build locally first)
+# Copy the pre-built application and dependencies
 COPY build/index.js ./moodle-mcp-server
+COPY node_modules ./node_modules
+COPY package.json ./package.json
 
 USER root
 
