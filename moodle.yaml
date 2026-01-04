@@ -90,3 +90,6 @@ containerizedConfig:
   path: '/mcp'
   env:
     PORT: "3000"
+    MOODLE_API_URL: "${MOODLE_API_URL}"
+    MOODLE_API_TOKEN: "${MOODLE_API_TOKEN}"
+    MOODLE_COURSE_ID: "${MOODLE_COURSE_ID}"
