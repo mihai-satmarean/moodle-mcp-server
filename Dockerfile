@@ -1,37 +1,35 @@
-# Production image using obot's base
-FROM ghcr.io/obot-platform/mcp-images-phat:v0.15.0
+# Use Node.js 20 Alpine for smaller image size
+FROM node:20-alpine
 
-# Copy the pre-built application and dependencies
-COPY build/index.js ./moodle-mcp-server
-COPY node_modules ./node_modules
-COPY package.json ./package.json
+# Set working directory
+WORKDIR /app
 
-USER root
+# Copy package files
+COPY package*.json ./
 
-# Make executable
-RUN chmod +x ./moodle-mcp-server
+# Install all dependencies (including dev dependencies for build)
+RUN npm ci --ignore-scripts
 
-RUN cat > nanobot.yaml <<'EOF'
-publish:
-  mcpServers: [server]
+# Copy source code
+COPY . .
 
-mcpServers:
-  server:
-    command: node
-    args: [./moodle-mcp-server]
-    env:
-      MOODLE_API_URL: ${MOODLE_API_URL}
-      MOODLE_API_TOKEN: ${MOODLE_API_TOKEN}
-      MOODLE_COURSE_ID: ${MOODLE_COURSE_ID}
-EOF
+# Build the application
+RUN npm run build
 
-RUN chown 1000 nanobot.yaml
+# Remove dev dependencies to reduce image size
+RUN npm prune --production
 
-# Set default PORT if not provided
-ENV PORT=3000
+# Make the built file executable
+RUN chmod +x build/index.js
 
-ENTRYPOINT ["sh", "-c"]
+# Expose port (this will be overridden by Obot)
+EXPOSE 3000
 
-CMD ["nanobot run --listen-address :${PORT} -e MOODLE_API_URL -e MOODLE_API_TOKEN -e MOODLE_COURSE_ID ./nanobot.yaml"]
+# Set environment variables (these will be overridden by Obot)
+ENV MOODLE_API_URL=http://localhost \
+    MOODLE_API_TOKEN=your_token \
+    MOODLE_COURSE_ID=1 \
+    PORT=3000
 
-USER 1000
+# Command to run the application
+CMD ["node", "./build/index.js"]
