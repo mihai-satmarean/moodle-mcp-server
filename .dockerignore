@@ -1,4 +1,4 @@
-# node_modules - needed in Docker image
+node_modules
 npm-debug.log
 .env
 .env.local

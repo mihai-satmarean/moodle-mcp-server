@@ -148,7 +148,12 @@ class MoodleMcpServer {
           description: 'Gets the list of quizzes in the configured course',
           inputSchema: {
             type: 'object',
-            properties: {},
+            properties: {
+              courseId: {
+                type: 'number',
+                description: 'Optional course ID to get quizzes for (defaults to configured course if not provided)',
+              },
+            },
             required: [],
           },
         },
@@ -346,7 +351,7 @@ class MoodleMcpServer {
           case 'get_assignments':
             return await this.getAssignments();
           case 'get_quizzes':
-            return await this.getQuizzes();
+            return await this.getQuizzes(request.params.arguments);
           case 'get_submissions':
             return await this.getSubmissions(request.params.arguments);
           case 'provide_feedback':
@@ -441,13 +446,14 @@ class MoodleMcpServer {
     };
   }
 
-  private async getQuizzes() {
-    console.error('[API] Requesting quizzes');
+  private async getQuizzes(args: any) {
+    const courseId = args?.courseId || MOODLE_COURSE_ID;
+    console.error(`[API] Requesting quizzes for course ${courseId}`);
     
     const response = await this.axiosInstance.get('', {
       params: {
         wsfunction: 'mod_quiz_get_quizzes_by_courses',
-        courseids: [MOODLE_COURSE_ID],
+        courseids: [courseId],
       },
     });
 
@@ -1345,9 +1351,13 @@ class MoodleMcpServer {
   }
 
   async run() {
+    // Use STDIO transport for MCP protocol
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('Moodle MCP server running on stdio');
+    console.error('Moodle MCP server running on STDIO transport');
+    
+    // Keep the process alive by waiting for process signals
+    process.stdin.resume();
   }
 }
 
