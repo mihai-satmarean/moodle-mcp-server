@@ -1,0 +1,70 @@
+# Multi-stage build for moodle-mcp-server using Obot's nanobot
+# Reference: https://github.com/obot-platform/mcp-images
+
+# Stage 1: Build stage - compile TypeScript
+FROM node:20-alpine AS builder
+
+WORKDIR /build
+
+# Copy source and config files
+COPY src ./src
+COPY tsconfig.json ./
+COPY package*.json ./
+
+# Install dependencies and build
+RUN npm ci
+RUN npm run build
+
+# Stage 2: Final runtime image
+FROM node:20-alpine
+
+USER root
+
+WORKDIR /app
+
+# Copy built application from builder
+COPY --from=builder /build/build ./build
+COPY --from=builder /build/node_modules ./node_modules
+COPY --from=builder /build/package.json ./package.json
+
+# Copy nanobot binary from phat image
+COPY --from=ghcr.io/obot-platform/mcp-images/phat:main /usr/local/bin/nanobot /usr/local/bin/nanobot
+
+# Create nanobot.yaml configuration
+RUN cat > /nanobot.yaml <<'EOF'
+publish:
+  mcpServers: [server]
+
+mcpServers:
+  server:
+    command: node
+    args: [/app/build/index.js]
+    env:
+      MOODLE_API_URL: ${MOODLE_API_URL}
+      MOODLE_API_TOKEN: ${MOODLE_API_TOKEN}
+      MOODLE_COURSE_ID: ${MOODLE_COURSE_ID}
+      MCP_RESPONSE_MODE: ${MCP_RESPONSE_MODE}
+      NODE_ENV: production
+EOF
+
+# Set default environment variables
+ENV MOODLE_API_URL=http://localhost
+ENV MOODLE_API_TOKEN=your_token
+ENV MOODLE_COURSE_ID=1
+ENV MCP_RESPONSE_MODE=summary
+
+# Switch to non-root user (alpine default is 1000)
+RUN chown -R 1000:1000 /app /nanobot.yaml
+
+USER 1000
+
+# Use nanobot entrypoint
+ENTRYPOINT ["nanobot"]
+
+# Listen on port 3000 (Obot deployment expects this port)
+CMD ["run", "--listen-address", ":3000", \
+     "-e", "MOODLE_API_URL", \
+     "-e", "MOODLE_API_TOKEN", \
+     "-e", "MOODLE_COURSE_ID", \
+     "-e", "MCP_RESPONSE_MODE", \
+     "/nanobot.yaml"]
