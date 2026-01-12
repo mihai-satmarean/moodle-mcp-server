@@ -213,7 +213,17 @@ class MoodleMcpServer {
           description: 'Gets the list of assignments in the configured course',
           inputSchema: {
             type: 'object',
-            properties: {},
+            properties: {
+              courseId: {
+                type: 'number',
+                description: 'Optional course ID to get assignments for (defaults to configured course if not provided)',
+              },
+              responseMode: {
+                type: 'string',
+                enum: ['summary', 'detailed'],
+                description: 'Response detail level: summary (basic info only), detailed (full info). Default from MCP_RESPONSE_MODE env',
+              },
+            },
             required: [],
           },
         },
@@ -226,6 +236,11 @@ class MoodleMcpServer {
               courseId: {
                 type: 'number',
                 description: 'Optional course ID to get quizzes for (defaults to configured course if not provided)',
+              },
+              responseMode: {
+                type: 'string',
+                enum: ['summary', 'detailed'],
+                description: 'Response detail level: summary (basic info only), detailed (full info). Default from MCP_RESPONSE_MODE env',
               },
             },
             required: [],
@@ -544,23 +559,37 @@ class MoodleMcpServer {
     };
   }
 
-  private async getAssignments() {
-    console.error('[API] Requesting assignments');
+  private async getAssignments(args?: any) {
+    const courseId = args?.courseId || MOODLE_COURSE_ID;
+    const responseMode = args?.responseMode || MCP_RESPONSE_MODE;
+    console.error(`[API] Requesting assignments for course ${courseId} (mode: ${responseMode})`);
     
     const response = await this.axiosInstance.get('', {
       params: {
         wsfunction: 'mod_assign_get_assignments',
-        courseids: [MOODLE_COURSE_ID],
+        courseids: [courseId],
       },
     });
 
     const assignments = response.data.courses[0]?.assignments || [];
     
+    // Format based on response mode
+    const formattedAssignments = responseMode === 'summary'
+      ? assignments.map((assignment: any) => ({
+          id: assignment.id,
+          name: assignment.name,
+          course: assignment.course,
+          duedate: assignment.duedate,
+          allowsubmissionsfromdate: assignment.allowsubmissionsfromdate,
+          grade: assignment.grade,
+        }))
+      : assignments;
+    
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(assignments, null, 2),
+          text: JSON.stringify(formattedAssignments, null, 2),
         },
       ],
     };
@@ -568,7 +597,8 @@ class MoodleMcpServer {
 
   private async getQuizzes(args: any) {
     const courseId = args?.courseId || MOODLE_COURSE_ID;
-    console.error(`[API] Requesting quizzes for course ${courseId}`);
+    const responseMode = args?.responseMode || MCP_RESPONSE_MODE;
+    console.error(`[API] Requesting quizzes for course ${courseId} (mode: ${responseMode})`);
     
     const response = await this.axiosInstance.get('', {
       params: {
@@ -579,11 +609,24 @@ class MoodleMcpServer {
 
     const quizzes = response.data.quizzes || [];
     
+    // Format based on response mode
+    const formattedQuizzes = responseMode === 'summary'
+      ? quizzes.map((quiz: any) => ({
+          id: quiz.id,
+          name: quiz.name,
+          coursemodule: quiz.coursemodule,
+          timeopen: quiz.timeopen,
+          timeclose: quiz.timeclose,
+          grade: quiz.grade,
+          visible: quiz.visible,
+        }))
+      : quizzes;
+    
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(quizzes, null, 2),
+          text: JSON.stringify(formattedQuizzes, null, 2),
         },
       ],
     };
