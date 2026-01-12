@@ -1119,14 +1119,16 @@ class MoodleMcpServer {
       let result: any;
       
       if (responseMode === 'summary') {
-        // Summary mode: Only return counts and IDs
+        // Summary mode: ULTRA-MINIMAL - only counts, NO lists
         result = {
           courseId: courseId,
           totalSections: summary.totalSections,
           totalModules: summary.totalModules,
           totalResources: summary.totalResources,
           totalActivities: summary.totalActivities,
-          sections: sections.map((section: any) => filterForSummary(section, 'section'))
+          hasVisibleSections: summary.hasVisibleSections,
+          hasHiddenSections: summary.hasHiddenSections,
+          hint: "Use responseMode='detailed' to get full section and module details"
         };
       } else {
         // Detailed mode: Full information
