@@ -25,6 +25,8 @@ toolPreview:
       categoryId: Optional category ID to filter courses by category (optional)
       searchTerm: Optional search term to filter courses by name (optional)
       limit: Optional limit for number of courses to return (optional)
+      offset: Number of courses to skip for pagination (optional)
+      responseMode: Response detail level - 'summary' or 'detailed' (optional)
       getAllCourses: Optional flag to get all courses using alternative methods (optional)
   - name: get_course_statistics
     description: Provides comprehensive statistics about courses including enrollments and activities
@@ -39,10 +41,14 @@ toolPreview:
       courseId: Course ID to get contents for (optional)
       includeModules: Whether to include detailed module information (optional)
       includeResources: Whether to include resource details (optional)
-  - name: list_students
+      responseMode: Response detail level - 'summary' or 'detailed' (optional)
+  - name: get_students
     description: Retrieves the list of students enrolled in the course
     params:
       courseId: Course ID to get students for (optional)
+      responseMode: Response detail level - 'summary' or 'detailed' (optional)
+      limit: Maximum number of students to return (optional)
+      offset: Number of students to skip for pagination (optional)
   - name: get_assignments
     description: Retrieves all available assignments in the course
     params:
@@ -82,6 +88,11 @@ env:
     required: false
     sensitive: false
     description: Port for the MCP server to listen on (default 3000)
+  - key: MCP_RESPONSE_MODE
+    name: Response Detail Level
+    required: false
+    sensitive: false
+    description: Control response size - 'summary' for minimal data (recommended for token-limited models), 'detailed' for full information (default 'detailed')
 
 runtime: containerized
 containerizedConfig:
@@ -93,3 +104,4 @@ containerizedConfig:
     MOODLE_API_URL: "${MOODLE_API_URL}"
     MOODLE_API_TOKEN: "${MOODLE_API_TOKEN}"
     MOODLE_COURSE_ID: "${MOODLE_COURSE_ID}"
+    MCP_RESPONSE_MODE: "${MCP_RESPONSE_MODE:-summary}"

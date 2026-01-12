@@ -13,6 +13,7 @@ import axios from 'axios';
 const MOODLE_API_URL = process.env.MOODLE_API_URL;
 const MOODLE_API_TOKEN = process.env.MOODLE_API_TOKEN;
 const MOODLE_COURSE_ID = process.env.MOODLE_COURSE_ID;
+const MCP_RESPONSE_MODE = process.env.MCP_RESPONSE_MODE || 'detailed'; // 'summary' | 'detailed'
 
 // Verify that the environment variables are defined
 if (!MOODLE_API_URL) {
@@ -25,6 +26,61 @@ if (!MOODLE_API_TOKEN) {
 
 if (!MOODLE_COURSE_ID) {
   throw new Error('MOODLE_COURSE_ID environment variable is required');
+}
+
+// Helper function to strip HTML and limit text length
+function stripHtml(html: string | null | undefined, maxLength: number = 200): string {
+  if (!html) return '';
+  const text = html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+}
+
+// Helper function to filter data based on response mode
+function filterForSummary(data: any, type: string): any {
+  if (!data) return data;
+  
+  switch (type) {
+    case 'course':
+      return {
+        id: data.id,
+        shortname: data.shortname,
+        fullname: data.fullname,
+        categoryid: data.categoryid,
+        visible: data.visible,
+        startdate: data.startdate,
+        enddate: data.enddate
+      };
+    
+    case 'student':
+      return {
+        id: data.id,
+        username: data.username,
+        firstname: data.firstname,
+        lastname: data.lastname,
+        email: data.email
+      };
+    
+    case 'module':
+      return {
+        id: data.id,
+        name: data.name,
+        modname: data.modname,
+        visible: data.visible,
+        url: data.url
+      };
+    
+    case 'section':
+      return {
+        id: data.id,
+        name: data.name,
+        section: data.section,
+        visible: data.visible,
+        moduleCount: data.modules?.length || 0
+      };
+    
+    default:
+      return data;
+  }
 }
 
 // Interfaces for data types
@@ -130,7 +186,25 @@ class MoodleMcpServer {
           description: 'Gets the list of students enrolled in the configured course',
           inputSchema: {
             type: 'object',
-            properties: {},
+            properties: {
+              courseId: {
+                type: 'number',
+                description: 'Course ID (defaults to configured course if not provided)',
+              },
+              responseMode: {
+                type: 'string',
+                enum: ['summary', 'detailed'],
+                description: 'Response detail level: summary (basic info only), detailed (full info). Default from MCP_RESPONSE_MODE env',
+              },
+              limit: {
+                type: 'number',
+                description: 'Maximum number of students to return (for pagination)',
+              },
+              offset: {
+                type: 'number',
+                description: 'Number of students to skip (for pagination, default: 0)',
+              },
+            },
             required: [],
           },
         },
@@ -255,9 +329,18 @@ class MoodleMcpServer {
                 type: 'number',
                 description: 'Optional limit for number of courses to return (default: 100)',
               },
+              offset: {
+                type: 'number',
+                description: 'Number of courses to skip (for pagination, default: 0)',
+              },
               getAllCourses: {
                 type: 'boolean',
                 description: 'Optional flag to attempt to get all courses using alternative methods (default: false)',
+              },
+              responseMode: {
+                type: 'string',
+                enum: ['summary', 'detailed'],
+                description: 'Response detail level: summary (basic info only), detailed (full info). Default from MCP_RESPONSE_MODE env',
               },
             },
             required: [],
@@ -280,6 +363,11 @@ class MoodleMcpServer {
               includeResources: {
                 type: 'boolean',
                 description: 'Whether to include resource details (default: true)',
+              },
+              responseMode: {
+                type: 'string',
+                enum: ['summary', 'detailed'],
+                description: 'Response detail level: summary (IDs and names only, <1KB), detailed (full info, may be large). Default from MCP_RESPONSE_MODE env',
               },
             },
             required: [],
@@ -394,31 +482,63 @@ class MoodleMcpServer {
     });
   }
 
-  private async getStudents() {
-    console.error('[API] Requesting enrolled users');
+  private async getStudents(args?: any) {
+    const courseId = args?.courseId || MOODLE_COURSE_ID;
+    const responseMode = args?.responseMode || MCP_RESPONSE_MODE;
+    const limit = args?.limit;
+    const offset = args?.offset || 0;
+    
+    console.error(`[API] Requesting enrolled users for course ${courseId} (mode: ${responseMode})`);
     
     const response = await this.axiosInstance.get('', {
       params: {
         wsfunction: 'core_enrol_get_enrolled_users',
-        courseid: MOODLE_COURSE_ID,
+        courseid: courseId,
       },
     });
 
-    const students = response.data
-      .filter((user: any) => user.roles.some((role: any) => role.shortname === 'student'))
-      .map((student: any) => ({
-        id: student.id,
-        username: student.username,
-        firstname: student.firstname,
-        lastname: student.lastname,
-        email: student.email,
-      }));
+    let students = response.data
+      .filter((user: any) => user.roles.some((role: any) => role.shortname === 'student'));
+
+    // Apply pagination if limit is specified
+    const totalStudents = students.length;
+    if (limit !== undefined) {
+      students = students.slice(offset, offset + limit);
+    }
+
+    // Format based on response mode
+    const formattedStudents = students.map((student: any) => 
+      responseMode === 'summary' 
+        ? filterForSummary(student, 'student')
+        : {
+            id: student.id,
+            username: student.username,
+            firstname: student.firstname,
+            lastname: student.lastname,
+            email: student.email,
+            fullname: student.fullname,
+            firstaccess: student.firstaccess,
+            lastaccess: student.lastaccess,
+            lastcourseaccess: student.lastcourseaccess,
+          }
+    );
+
+    const result: any = {
+      students: formattedStudents,
+      total: totalStudents,
+    };
+
+    if (limit !== undefined) {
+      result.returned = formattedStudents.length;
+      result.offset = offset;
+      result.hasMore = (offset + formattedStudents.length) < totalStudents;
+    }
 
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(students, null, 2),
+          text: JSON.stringify(result, null, 2),
         },
       ],
     };
@@ -751,7 +871,9 @@ class MoodleMcpServer {
   }
 
   private async getCourses(args: any) {
-    console.error('[API] Requesting courses');
+    const responseMode = args?.responseMode || MCP_RESPONSE_MODE;
+    const offset = args?.offset || 0;
+    console.error(`[API] Requesting courses (mode: ${responseMode})`);
     
     try {
       const getAllCourses = args.getAllCourses || false;
@@ -871,39 +993,55 @@ class MoodleMcpServer {
         allCourses = Array.isArray(response.data) ? response.data : [];
       }
       
-      // Apply limit if specified
+      // Store total before pagination
+      const totalCourses = allCourses.length;
+      
+      // Apply pagination (offset + limit)
       if (args.limit) {
-        allCourses = allCourses.slice(0, args.limit);
+        allCourses = allCourses.slice(offset, offset + args.limit);
+      } else if (offset > 0) {
+        allCourses = allCourses.slice(offset);
       }
       
-      // Create summary statistics
-      const summary = {
-        totalCourses: allCourses.length,
-        returnedCourses: allCourses.length,
-        method: getAllCourses ? 'alternative' : 'standard',
-        categories: [...new Set(allCourses.map((c: any) => c.categoryid))].length,
-        activeCourses: allCourses.filter((c: any) => c.visible).length,
-        inactiveCourses: allCourses.filter((c: any) => !c.visible).length
+      // Format courses based on response mode
+      const formattedCourses = allCourses.map((course: any) => 
+        responseMode === 'summary' 
+          ? filterForSummary(course, 'course')
+          : {
+              id: course.id,
+              shortname: course.shortname,
+              fullname: course.fullname,
+              categoryid: course.categoryid,
+              startdate: course.startdate ? new Date(course.startdate * 1000).toISOString() : null,
+              enddate: course.enddate ? new Date(course.enddate * 1000).toISOString() : null,
+              visible: course.visible,
+              summary: course.summary ? stripHtml(course.summary, 100) : null,
+              timecreated: course.timecreated ? new Date(course.timecreated * 1000).toISOString() : null,
+              timemodified: course.timemodified ? new Date(course.timemodified * 1000).toISOString() : null
+            }
+      );
+      
+      const result: any = {
+        courses: formattedCourses,
+        total: totalCourses,
+        returned: formattedCourses.length,
       };
       
-      // Format courses for better readability
-      const formattedCourses = allCourses.map((course: any) => ({
-        id: course.id,
-        shortname: course.shortname,
-        fullname: course.fullname,
-        categoryid: course.categoryid,
-        startdate: course.startdate ? new Date(course.startdate * 1000).toISOString() : null,
-        enddate: course.enddate ? new Date(course.enddate * 1000).toISOString() : null,
-        visible: course.visible,
-        summary: course.summary ? course.summary.substring(0, 100) + '...' : null,
-        timecreated: course.timecreated ? new Date(course.timecreated * 1000).toISOString() : null,
-        timemodified: course.timemodified ? new Date(course.timemodified * 1000).toISOString() : null
-      }));
+      if (args.limit || offset > 0) {
+        result.offset = offset;
+        result.hasMore = (offset + formattedCourses.length) < totalCourses;
+      }
       
-      const result = {
-        summary,
-        courses: formattedCourses
-      };
+      if (responseMode === 'detailed') {
+        result.summary = {
+          totalCourses: totalCourses,
+          returnedCourses: formattedCourses.length,
+          method: getAllCourses ? 'alternative' : 'standard',
+          categories: [...new Set(allCourses.map((c: any) => c.categoryid))].length,
+          activeCourses: allCourses.filter((c: any) => c.visible).length,
+          inactiveCourses: allCourses.filter((c: any) => !c.visible).length
+        };
+      }
       
       return {
         content: [
@@ -936,8 +1074,9 @@ class MoodleMcpServer {
     const courseId = args.courseId || MOODLE_COURSE_ID;
     const includeModules = args.includeModules !== false; // default to true
     const includeResources = args.includeResources !== false; // default to true
+    const responseMode = args.responseMode || MCP_RESPONSE_MODE;
     
-    console.error(`[API] Requesting course contents for course ${courseId}`);
+    console.error(`[API] Requesting course contents for course ${courseId} (mode: ${responseMode})`);
     
     try {
       const response = await this.axiosInstance.get('', {
@@ -976,66 +1115,81 @@ class MoodleMcpServer {
         hasHiddenSections: sections.some((s: any) => !s.visible)
       };
 
-      // Format sections for better readability
-      const formattedSections = sections.map((section: any) => {
-        const formattedSection: any = {
-          id: section.id,
-          name: section.name,
-          summary: section.summary ? section.summary.substring(0, 150) + '...' : null,
-          visible: section.visible,
-          section: section.section,
-          summaryformat: section.summaryformat,
-          modules: []
+      // Format sections based on response mode
+      let result: any;
+      
+      if (responseMode === 'summary') {
+        // Summary mode: Only return counts and IDs
+        result = {
+          courseId: courseId,
+          totalSections: summary.totalSections,
+          totalModules: summary.totalModules,
+          totalResources: summary.totalResources,
+          totalActivities: summary.totalActivities,
+          sections: sections.map((section: any) => filterForSummary(section, 'section'))
         };
+      } else {
+        // Detailed mode: Full information
+        const formattedSections = sections.map((section: any) => {
+          const formattedSection: any = {
+            id: section.id,
+            name: section.name,
+            summary: section.summary ? section.summary.substring(0, 150) + '...' : null,
+            visible: section.visible,
+            section: section.section,
+            summaryformat: section.summaryformat,
+            modules: []
+          };
 
-        // Add modules if requested and available
-        if (includeModules && section.modules && Array.isArray(section.modules)) {
-          formattedSection.modules = section.modules.map((module: any) => {
-            const formattedModule: any = {
-              id: module.id,
-              name: module.name,
-              modname: module.modname,
-              modplural: module.modplural,
-              instance: module.instance,
-              visible: module.visible,
-              visibleoncoursepage: module.visibleoncoursepage,
-              indent: module.indent,
-              url: module.url,
-              description: module.description ? module.description.substring(0, 100) + '...' : null,
-              descriptionformat: module.descriptionformat
-            };
-
-            // Add resource-specific information if requested
-            if (includeResources && module.modname === 'resource' && module.contents) {
-              formattedModule.resourceInfo = {
-                fileCount: module.contents.length,
-                fileTypes: [...new Set(module.contents.map((c: any) => c.mimetype))],
-                totalSize: module.contents.reduce((total: number, c: any) => total + (c.filesize || 0), 0)
+          // Add modules if requested and available
+          if (includeModules && section.modules && Array.isArray(section.modules)) {
+            formattedSection.modules = section.modules.map((module: any) => {
+              const formattedModule: any = {
+                id: module.id,
+                name: module.name,
+                modname: module.modname,
+                modplural: module.modplural,
+                instance: module.instance,
+                visible: module.visible,
+                visibleoncoursepage: module.visibleoncoursepage,
+                indent: module.indent,
+                url: module.url,
+                description: module.description ? module.description.substring(0, 100) + '...' : null,
+                descriptionformat: module.descriptionformat
               };
-            }
 
-            // Add activity-specific information
-            if (module.modname !== 'resource') {
-              formattedModule.activityInfo = {
-                type: module.modname,
-                hasCompletion: module.completion !== undefined,
-                completion: module.completion,
-                hasGrade: module.grade !== undefined,
-                grade: module.grade
-              };
-            }
+              // Add resource-specific information if requested
+              if (includeResources && module.modname === 'resource' && module.contents) {
+                formattedModule.resourceInfo = {
+                  fileCount: module.contents.length,
+                  fileTypes: [...new Set(module.contents.map((c: any) => c.mimetype))],
+                  totalSize: module.contents.reduce((total: number, c: any) => total + (c.filesize || 0), 0)
+                };
+              }
 
-            return formattedModule;
-          });
-        }
+              // Add activity-specific information
+              if (module.modname !== 'resource') {
+                formattedModule.activityInfo = {
+                  type: module.modname,
+                  hasCompletion: module.completion !== undefined,
+                  completion: module.completion,
+                  hasGrade: module.grade !== undefined,
+                  grade: module.grade
+                };
+              }
 
-        return formattedSection;
-      });
+              return formattedModule;
+            });
+          }
 
-      const result = {
-        summary,
-        sections: formattedSections
-      };
+          return formattedSection;
+        });
+        
+        result = {
+          summary,
+          sections: formattedSections
+        };
+      }
 
       return {
         content: [

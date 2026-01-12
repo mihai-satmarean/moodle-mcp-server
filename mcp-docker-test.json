@@ -1,0 +1,17 @@
+        {
+  "mcpServers": {
+    "moodle-docker": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-e", "MOODLE_API_URL=https://platforma.scoalainformala.ro/webservice/rest/server.php",
+        "-e", "MOODLE_API_TOKEN=2d00b9356b469277f74d9631af0e4a4a",
+        "-e", "MOODLE_COURSE_ID=1",
+        "moodle-mcp-server:local"
+      ],
+      "env": {}
+    }
+  }
+}

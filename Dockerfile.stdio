@@ -1,0 +1,14 @@
+# Simple STDIO MCP server
+FROM node:20-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy the pre-built application
+COPY build/index.js ./index.js
+
+# Make executable
+RUN chmod +x index.js
+
+# Default command runs the STDIO server
+CMD ["node", "index.js"]

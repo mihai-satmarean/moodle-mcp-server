@@ -1,0 +1,26 @@
+# Use Node.js 20 Alpine for smaller image size
+FROM node:20-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm ci --only=production --ignore-scripts
+
+# Copy built application (build locally first)
+COPY build/ ./build/
+
+# Make the built file executable
+RUN chmod +x build/index.js
+
+# Expose port 
+EXPOSE 3000
+
+# Set environment variables (these will be overridden by Obot)
+ENV NODE_ENV=production
+
+# Default command (this will be overridden by Obot)
+CMD ["node", "./build/index.js"]
