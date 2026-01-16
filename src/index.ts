@@ -438,6 +438,60 @@ class MoodleMcpServer {
           },
         },
         {
+          name: 'admin_search_courses_by_name',
+          description: 'Search courses by name (partial match supported)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              searchTerm: {
+                type: 'string',
+                description: 'Course name or partial name to search for (e.g., "Java", "Python Basic")',
+              },
+              includeInstructors: {
+                type: 'boolean',
+                description: 'Include instructor information in results (default: false)',
+              },
+            },
+            required: ['searchTerm'],
+          },
+        },
+        {
+          name: 'admin_search_courses_by_instructor',
+          description: 'Search courses by instructor name or email',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              instructorQuery: {
+                type: 'string',
+                description: 'Instructor name (full or partial) or email address',
+              },
+            },
+            required: ['instructorQuery'],
+          },
+        },
+        {
+          name: 'admin_search_courses_advanced',
+          description: 'Advanced course search with multiple criteria (name AND/OR instructor)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseName: {
+                type: 'string',
+                description: 'Course name or partial name',
+              },
+              instructorName: {
+                type: 'string',
+                description: 'Instructor name or email',
+              },
+              includeHidden: {
+                type: 'boolean',
+                description: 'Include hidden courses in results (default: false)',
+              },
+            },
+            required: [],
+          },
+        },
+        {
           name: 'get_courses',
           description: 'Gets the list of all available courses on the Moodle platform (Admin tool)',
           inputSchema: {
@@ -584,6 +638,12 @@ class MoodleMcpServer {
             return await this.tutorExtractThemesFromContent(request.params.arguments);
           case 'tutor_get_quiz_creation_guide':
             return await this.tutorGetQuizCreationGuide();
+          case 'admin_search_courses_by_name':
+            return await this.adminSearchCoursesByName(request.params.arguments);
+          case 'admin_search_courses_by_instructor':
+            return await this.adminSearchCoursesByInstructor(request.params.arguments);
+          case 'admin_search_courses_advanced':
+            return await this.adminSearchCoursesAdvanced(request.params.arguments);
           case 'get_courses':
             return await this.getCourses(request.params.arguments);
           case 'get_course_contents':
@@ -1137,6 +1197,79 @@ class MoodleMcpServer {
   }
 
   // ============= END TUTOR QUIZ CREATION TOOLS =============
+
+  // ============= ADMIN: COURSE SEARCH TOOLS =============
+
+  private async adminSearchCoursesByName(args: any) {
+    console.error(`[ADMIN] Searching courses by name: ${args.searchTerm}`);
+    
+    try {
+      const { admin_search_courses_by_name } = await import('./personas/admin/tools/courseSearch.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await admin_search_courses_by_name(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error searching courses by name: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async adminSearchCoursesByInstructor(args: any) {
+    console.error(`[ADMIN] Searching courses by instructor: ${args.instructorQuery}`);
+    
+    try {
+      const { admin_search_courses_by_instructor } = await import('./personas/admin/tools/courseSearch.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await admin_search_courses_by_instructor(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error searching courses by instructor: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async adminSearchCoursesAdvanced(args: any) {
+    console.error(`[ADMIN] Advanced course search`);
+    
+    try {
+      const { admin_search_courses_advanced } = await import('./personas/admin/tools/courseSearch.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await admin_search_courses_advanced(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error in advanced course search: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  // ============= END ADMIN COURSE SEARCH TOOLS =============
 
   private async getCourses(args: any) {
     const responseMode = args?.responseMode || MCP_RESPONSE_MODE;
