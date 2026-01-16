@@ -1483,8 +1483,8 @@ class MoodleMcpServer {
     try {
       const { discoverMoodleQuizFunctions } = await import('./personas/tutor/tools/quizCreationDirect.js');
       return await discoverMoodleQuizFunctions({
-        moodleUrl: MOODLE_API_URL,
-        token: MOODLE_API_TOKEN
+        moodleUrl: MOODLE_API_URL || '',
+        token: MOODLE_API_TOKEN || ''
       });
     } catch (error) {
       console.error('[Error]', error);
@@ -1505,8 +1505,8 @@ class MoodleMcpServer {
       const { createQuizDirect } = await import('./personas/tutor/tools/quizCreationDirect.js');
       return await createQuizDirect({
         ...args,
-        moodleUrl: MOODLE_API_URL,
-        token: MOODLE_API_TOKEN
+        moodleUrl: MOODLE_API_URL || '',
+        token: MOODLE_API_TOKEN || ''
       });
     } catch (error) {
       console.error('[Error]', error);
