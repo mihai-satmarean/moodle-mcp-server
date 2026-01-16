@@ -193,8 +193,20 @@ export async function tutor_get_student_all_quiz_results(args: {
             current.sumgrades > best.sumgrades ? current : best
           );
           
-          // Use quiz.grade as fallback if bestAttempt.maxgrade is undefined
-          const maxScore = bestAttempt.maxgrade || quiz.grade || 100;
+          // Try multiple sources for maxScore
+          const maxScore = bestAttempt.maxgrade 
+            || quiz.grade 
+            || quiz.sumgrades 
+            || quiz.maxgrade
+            || 100; // Final fallback
+          
+          console.error(`[DEBUG] Quiz ${quiz.name} (${quiz.id}):`, {
+            'attempt.maxgrade': bestAttempt.maxgrade,
+            'quiz.grade': quiz.grade,
+            'quiz.sumgrades': quiz.sumgrades,
+            'quiz.maxgrade': quiz.maxgrade,
+            'final maxScore': maxScore
+          });
           
           quizResults.push({
             quizId: quiz.id,
