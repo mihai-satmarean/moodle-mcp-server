@@ -438,6 +438,41 @@ class MoodleMcpServer {
           },
         },
         {
+          name: 'tutor_discover_quiz_functions',
+          description: 'Discover available Moodle Web Services functions for quiz/question creation',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+            required: [],
+          },
+        },
+        {
+          name: 'tutor_create_quiz_direct',
+          description: 'Attempt to create quiz directly via Moodle API (if supported)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'number',
+                description: 'Course ID',
+              },
+              name: {
+                type: 'string',
+                description: 'Quiz name',
+              },
+              intro: {
+                type: 'string',
+                description: 'Quiz introduction/description',
+              },
+              attempts: {
+                type: 'number',
+                description: 'Number of attempts allowed (0 = unlimited)',
+              },
+            },
+            required: ['courseId', 'name'],
+          },
+        },
+        {
           name: 'tutor_get_student_quiz_attempts',
           description: 'Get all quiz attempts for a specific student (scores, dates, duration, progress)',
           inputSchema: {
@@ -838,6 +873,10 @@ class MoodleMcpServer {
             return await this.tutorExtractThemesFromContent(request.params.arguments);
           case 'tutor_get_quiz_creation_guide':
             return await this.tutorGetQuizCreationGuide();
+          case 'tutor_discover_quiz_functions':
+            return await this.tutorDiscoverQuizFunctions();
+          case 'tutor_create_quiz_direct':
+            return await this.tutorCreateQuizDirect(request.params.arguments);
           case 'tutor_get_student_quiz_attempts':
             return await this.tutorGetStudentQuizAttempts(request.params.arguments);
           case 'tutor_get_student_all_quiz_results':
@@ -1412,6 +1451,49 @@ class MoodleMcpServer {
         content: [{
           type: 'text',
           text: `Error getting quiz creation guide: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorDiscoverQuizFunctions() {
+    console.error(`[TUTOR] Discovering available quiz creation functions`);
+    
+    try {
+      const { discoverMoodleQuizFunctions } = await import('./personas/tutor/tools/quizCreationDirect.js');
+      return await discoverMoodleQuizFunctions({
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      });
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error discovering functions: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorCreateQuizDirect(args: any) {
+    console.error(`[TUTOR] Attempting to create quiz directly: ${args.name}`);
+    
+    try {
+      const { createQuizDirect } = await import('./personas/tutor/tools/quizCreationDirect.js');
+      return await createQuizDirect({
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      });
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error creating quiz: ${error instanceof Error ? error.message : String(error)}`
         }],
         isError: true
       };
