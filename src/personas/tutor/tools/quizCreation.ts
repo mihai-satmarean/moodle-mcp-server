@@ -4,7 +4,7 @@
  */
 
 import axios from 'axios';
-import { createQuizBlueprint, Theme, QuizBlueprint } from './quizManagement';
+import { createQuizBlueprint, Theme, QuizBlueprint } from './quizManagement.js';
 
 /**
  * Tool: Create quiz blueprint with AI-generated questions

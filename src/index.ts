@@ -1061,8 +1061,8 @@ class MoodleMcpServer {
       const { tutor_create_adaptive_quiz } = await import('./personas/tutor/tools/quizCreation.js');
       const argsWithCredentials = {
         ...args,
-        moodleUrl: this.moodleUrl,
-        token: this.token
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
       };
       return await tutor_create_adaptive_quiz(argsWithCredentials);
     } catch (error) {
@@ -1084,8 +1084,8 @@ class MoodleMcpServer {
       const { tutor_list_quizzes_with_stats } = await import('./personas/tutor/tools/quizCreation.js');
       const argsWithCredentials = {
         ...args,
-        moodleUrl: this.moodleUrl,
-        token: this.token
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
       };
       return await tutor_list_quizzes_with_stats(argsWithCredentials);
     } catch (error) {
