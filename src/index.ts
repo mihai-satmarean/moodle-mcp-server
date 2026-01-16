@@ -327,6 +327,117 @@ class MoodleMcpServer {
           },
         },
         {
+          name: 'tutor_create_quiz_blueprint',
+          description: 'Creates a quiz blueprint with AI-generated questions. Returns Moodle XML for import. Supports inclusive training with unlimited attempts.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              name: {
+                type: 'string',
+                description: 'Quiz name',
+              },
+              courseId: {
+                type: 'number',
+                description: 'Course ID where quiz will be imported',
+              },
+              themes: {
+                type: 'array',
+                description: 'Array of themes with title, description, and keywords',
+                items: {
+                  type: 'object',
+                  properties: {
+                    title: { type: 'string' },
+                    description: { type: 'string' },
+                    keywords: { type: 'array', items: { type: 'string' } }
+                  },
+                  required: ['title', 'description', 'keywords']
+                }
+              },
+              questionsPerTheme: {
+                type: 'number',
+                description: 'Number of questions to generate per theme',
+              },
+              difficulty: {
+                type: 'string',
+                enum: ['beginner', 'intermediate', 'advanced'],
+                description: 'Question difficulty level',
+              },
+              allowUnlimitedAttempts: {
+                type: 'boolean',
+                description: 'Allow unlimited attempts (default: true for inclusive training)',
+              },
+            },
+            required: ['name', 'courseId', 'themes', 'questionsPerTheme', 'difficulty'],
+          },
+        },
+        {
+          name: 'tutor_create_adaptive_quiz',
+          description: 'Creates personalized remediation quiz based on student weak areas from previous quiz',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              studentId: {
+                type: 'number',
+                description: 'Student ID',
+              },
+              sourceQuizId: {
+                type: 'number',
+                description: 'Original quiz ID to analyze',
+              },
+              newQuizName: {
+                type: 'string',
+                description: 'Name for the adaptive quiz',
+              },
+              targetAccuracy: {
+                type: 'number',
+                description: 'Accuracy threshold (default: 70). Areas below this generate questions.',
+              },
+            },
+            required: ['studentId', 'sourceQuizId', 'newQuizName'],
+          },
+        },
+        {
+          name: 'tutor_list_quizzes_with_stats',
+          description: 'Lists quizzes with statistics and creation capabilities info',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'number',
+                description: 'Course ID',
+              },
+            },
+            required: ['courseId'],
+          },
+        },
+        {
+          name: 'tutor_extract_themes_from_content',
+          description: 'Extracts themes from text content for quiz generation',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              content: {
+                type: 'string',
+                description: 'Text content to analyze (e.g., training material, documentation)',
+              },
+              maxThemes: {
+                type: 'number',
+                description: 'Maximum number of themes to extract (default: 5)',
+              },
+            },
+            required: ['content'],
+          },
+        },
+        {
+          name: 'tutor_get_quiz_creation_guide',
+          description: 'Get comprehensive guide for quiz creation with Tutor Assistant',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+            required: [],
+          },
+        },
+        {
           name: 'get_courses',
           description: 'Gets the list of all available courses on the Moodle platform (Admin tool)',
           inputSchema: {
@@ -463,6 +574,16 @@ class MoodleMcpServer {
             return await this.getSubmissionContent(request.params.arguments);
           case 'get_quiz_grade':
             return await this.getQuizGrade(request.params.arguments);
+          case 'tutor_create_quiz_blueprint':
+            return await this.tutorCreateQuizBlueprint(request.params.arguments);
+          case 'tutor_create_adaptive_quiz':
+            return await this.tutorCreateAdaptiveQuiz(request.params.arguments);
+          case 'tutor_list_quizzes_with_stats':
+            return await this.tutorListQuizzesWithStats(request.params.arguments);
+          case 'tutor_extract_themes_from_content':
+            return await this.tutorExtractThemesFromContent(request.params.arguments);
+          case 'tutor_get_quiz_creation_guide':
+            return await this.tutorGetQuizCreationGuide();
           case 'get_courses':
             return await this.getCourses(request.params.arguments);
           case 'get_course_contents':
@@ -912,6 +1033,110 @@ class MoodleMcpServer {
       throw error;
     }
   }
+
+  // ============= TUTOR PERSONA: QUIZ CREATION TOOLS =============
+  
+  private async tutorCreateQuizBlueprint(args: any) {
+    console.error(`[TUTOR] Creating quiz blueprint: ${args.name}`);
+    
+    try {
+      const { tutor_create_quiz_blueprint } = await import('./personas/tutor/tools/quizCreation.js');
+      return await tutor_create_quiz_blueprint(args);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error creating quiz blueprint: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorCreateAdaptiveQuiz(args: any) {
+    console.error(`[TUTOR] Creating adaptive quiz for student ${args.studentId}`);
+    
+    try {
+      const { tutor_create_adaptive_quiz } = await import('./personas/tutor/tools/quizCreation.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: this.moodleUrl,
+        token: this.token
+      };
+      return await tutor_create_adaptive_quiz(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error creating adaptive quiz: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorListQuizzesWithStats(args: any) {
+    console.error(`[TUTOR] Listing quizzes with stats for course ${args.courseId}`);
+    
+    try {
+      const { tutor_list_quizzes_with_stats } = await import('./personas/tutor/tools/quizCreation.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: this.moodleUrl,
+        token: this.token
+      };
+      return await tutor_list_quizzes_with_stats(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error listing quizzes: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorExtractThemesFromContent(args: any) {
+    console.error(`[TUTOR] Extracting themes from content (${args.content.length} chars)`);
+    
+    try {
+      const { tutor_extract_themes_from_content } = await import('./personas/tutor/tools/quizCreation.js');
+      return await tutor_extract_themes_from_content(args);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error extracting themes: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorGetQuizCreationGuide() {
+    console.error(`[TUTOR] Getting quiz creation guide`);
+    
+    try {
+      const { tutor_get_quiz_creation_guide } = await import('./personas/tutor/tools/quizCreation.js');
+      return await tutor_get_quiz_creation_guide();
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error getting quiz creation guide: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  // ============= END TUTOR QUIZ CREATION TOOLS =============
 
   private async getCourses(args: any) {
     const responseMode = args?.responseMode || MCP_RESPONSE_MODE;

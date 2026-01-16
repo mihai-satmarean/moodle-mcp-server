@@ -23,3 +23,20 @@ export {
   generateTutorIntroduction,
   getTutorShortIntro
 } from './persona-config.js';
+
+export {
+  tutor_create_quiz_blueprint,
+  tutor_create_adaptive_quiz,
+  tutor_list_quizzes_with_stats,
+  tutor_extract_themes_from_content,
+  tutor_get_quiz_creation_guide
+} from './tools/quizCreation.js';
+
+export {
+  createQuizBlueprint,
+  generateQuestionsFromTheme,
+  type QuizSettings,
+  type Question,
+  type Theme,
+  type QuizBlueprint
+} from './tools/quizManagement.js';
