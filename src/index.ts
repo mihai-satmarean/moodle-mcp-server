@@ -473,6 +473,68 @@ class MoodleMcpServer {
           },
         },
         {
+          name: 'tutor_create_quiz_automated',
+          description: 'Create quiz COMPLETELY AUTOMATICALLY in Moodle using browser automation (AI logs in, creates quiz, imports questions, publishes)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              username: {
+                type: 'string',
+                description: 'Moodle username for login',
+              },
+              password: {
+                type: 'string',
+                description: 'Moodle password for login',
+              },
+              courseId: {
+                type: 'number',
+                description: 'Course ID where quiz will be created',
+              },
+              quizName: {
+                type: 'string',
+                description: 'Name of the quiz',
+              },
+              quizIntro: {
+                type: 'string',
+                description: 'Quiz introduction/description',
+              },
+              themes: {
+                type: 'array',
+                description: 'Array of themes for question generation',
+                items: {
+                  type: 'object',
+                  properties: {
+                    title: { type: 'string' },
+                    description: { type: 'string' },
+                    keywords: {
+                      type: 'array',
+                      items: { type: 'string' }
+                    }
+                  }
+                }
+              },
+              questionsPerTheme: {
+                type: 'number',
+                description: 'Number of questions per theme (default: 1)',
+              },
+              difficulty: {
+                type: 'string',
+                description: 'Difficulty level: beginner, intermediate, advanced',
+                enum: ['beginner', 'intermediate', 'advanced']
+              },
+              allowUnlimitedAttempts: {
+                type: 'boolean',
+                description: 'Allow unlimited attempts (default: true)',
+              },
+              headless: {
+                type: 'boolean',
+                description: 'Run browser in headless mode (default: true)',
+              },
+            },
+            required: ['username', 'password', 'courseId', 'quizName', 'themes'],
+          },
+        },
+        {
           name: 'tutor_get_student_quiz_attempts',
           description: 'Get all quiz attempts for a specific student (scores, dates, duration, progress)',
           inputSchema: {
@@ -895,6 +957,8 @@ class MoodleMcpServer {
             return await this.tutorDiscoverQuizFunctions();
           case 'tutor_create_quiz_direct':
             return await this.tutorCreateQuizDirect(request.params.arguments);
+          case 'tutor_create_quiz_automated':
+            return await this.tutorCreateQuizAutomated(request.params.arguments);
           case 'tutor_get_student_quiz_attempts':
             return await this.tutorGetStudentQuizAttempts(request.params.arguments);
           case 'tutor_get_student_all_quiz_results':
@@ -1514,6 +1578,27 @@ class MoodleMcpServer {
         content: [{
           type: 'text',
           text: `Error creating quiz: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorCreateQuizAutomated(args: any) {
+    console.error(`[TUTOR] Creating quiz automatically with browser automation: ${args.quizName}`);
+    
+    try {
+      const { tutor_create_quiz_automated } = await import('./personas/tutor/tools/quizAutomation.js');
+      return await tutor_create_quiz_automated({
+        ...args,
+        moodleUrl: MOODLE_API_URL || ''
+      });
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error creating quiz automatically: ${error instanceof Error ? error.message : String(error)}`
         }],
         isError: true
       };
