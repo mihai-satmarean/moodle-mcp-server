@@ -727,6 +727,24 @@ class MoodleMcpServer {
           },
         },
         {
+          name: 'admin_get_enrollment_status',
+          description: 'Get detailed enrollment status including active/suspended users and debug info',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'number',
+                description: 'Course ID',
+              },
+              includeInactive: {
+                type: 'boolean',
+                description: 'Include suspended/inactive users (default: false)',
+              },
+            },
+            required: ['courseId'],
+          },
+        },
+        {
           name: 'get_courses',
           description: 'Gets the list of all available courses on the Moodle platform (Admin tool)',
           inputSchema: {
@@ -905,6 +923,8 @@ class MoodleMcpServer {
             return await this.adminGetCourseMentors(request.params.arguments);
           case 'admin_compare_course_participants':
             return await this.adminCompareCourseParticipants(request.params.arguments);
+          case 'admin_get_enrollment_status':
+            return await this.adminGetEnrollmentStatus(request.params.arguments);
           case 'get_courses':
             return await this.getCourses(request.params.arguments);
           case 'get_course_contents':
@@ -1820,6 +1840,29 @@ class MoodleMcpServer {
         content: [{
           type: 'text',
           text: `Error comparing course participants: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async adminGetEnrollmentStatus(args: any) {
+    console.error(`[ADMIN] Getting enrollment status for course ${args.courseId}`);
+    
+    try {
+      const { admin_get_enrollment_status } = await import('./personas/admin/tools/enrollmentStatus.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await admin_get_enrollment_status(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error getting enrollment status: ${error instanceof Error ? error.message : String(error)}`
         }],
         isError: true
       };
