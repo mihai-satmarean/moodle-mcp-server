@@ -89,7 +89,7 @@ export async function tutor_get_student_quiz_chart(args: {
       uri: `ui://moodle/quiz-chart/${studentId}/${courseId}`,
       content: {
         type: 'rawHtml',
-        html: htmlContent
+        htmlString: htmlContent
       },
       encoding: 'text'
     });
@@ -196,7 +196,7 @@ export async function tutor_get_quiz_leaderboard_chart(args: {
       uri: `ui://moodle/quiz-leaderboard/${quizId}`,
       content: {
         type: 'rawHtml',
-        html: htmlContent
+        htmlString: htmlContent
       },
       encoding: 'text'
     });
