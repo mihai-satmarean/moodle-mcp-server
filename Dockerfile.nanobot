@@ -9,8 +9,8 @@ WORKDIR /build
 # Copy package files first for better Docker layer caching
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (skip prepare script - we'll build after copying src)
+RUN npm ci --ignore-scripts
 
 # Copy source and config files
 COPY src ./src
