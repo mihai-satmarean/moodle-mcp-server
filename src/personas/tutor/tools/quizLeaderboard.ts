@@ -340,7 +340,7 @@ export async function tutor_get_course_quiz_completion(args: {
     result += `📝 PER QUIZ:\n\n`;
     
     for (const quiz of quizzes) {
-      const completedCount = students.filter(s => 
+      const completedCount = students.filter((s: any) => 
         completionMatrix[s.id].quizzes[quiz.id].completed
       ).length;
       
@@ -351,10 +351,10 @@ export async function tutor_get_course_quiz_completion(args: {
       
       if (completedCount > 0) {
         const scores = students
-          .filter(s => completionMatrix[s.id].quizzes[quiz.id].completed)
-          .map(s => completionMatrix[s.id].quizzes[quiz.id].percentage);
+          .filter((s: any) => completionMatrix[s.id].quizzes[quiz.id].completed)
+          .map((s: any) => completionMatrix[s.id].quizzes[quiz.id].percentage);
         
-        const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const avgScore = scores.reduce((a: number, b: number) => a + b, 0) / scores.length;
         result += `   Average score: ${avgScore.toFixed(1)}%\n`;
       }
       
@@ -375,17 +375,17 @@ export async function tutor_get_course_quiz_completion(args: {
       result += `   Progress: ${completedQuizzes}/${totalQuizzes} quizzes completed\n`;
       
       if (completedQuizzes > 0) {
-        const avgScore = Object.values(studentData.quizzes)
+        const avgScore = (Object.values(studentData.quizzes) as any[])
           .filter((q: any) => q.completed)
-          .reduce((sum, q: any) => sum + q.percentage, 0) / completedQuizzes;
+          .reduce((sum: number, q: any) => sum + q.percentage, 0) / completedQuizzes;
         
         result += `   Average: ${avgScore.toFixed(1)}%\n`;
       }
       
       // Show which quizzes are missing
       const missing = quizzes
-        .filter(q => !studentData.quizzes[q.id].completed)
-        .map(q => q.name);
+        .filter((q: any) => !studentData.quizzes[q.id].completed)
+        .map((q: any) => q.name);
       
       if (missing.length > 0) {
         result += `   Missing: ${missing.join(', ')}\n`;
