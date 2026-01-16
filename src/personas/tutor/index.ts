@@ -17,3 +17,9 @@ export {
 } from './tools/cohortAssessment.js';
 
 export { SkillLevel, type StudentClassification } from '../../shared/utils/statistics.js';
+
+export { 
+  TUTOR_PERSONA,
+  generateTutorIntroduction,
+  getTutorShortIntro
+} from './persona-config.js';
