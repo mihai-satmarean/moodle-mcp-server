@@ -492,6 +492,56 @@ class MoodleMcpServer {
           },
         },
         {
+          name: 'admin_get_course_participants',
+          description: 'Get all course participants with their roles (mentors, students, others) - DEBUGGING TOOL',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'number',
+                description: 'Course ID',
+              },
+              includeInactive: {
+                type: 'boolean',
+                description: 'Include inactive participants (default: false)',
+              },
+            },
+            required: ['courseId'],
+          },
+        },
+        {
+          name: 'admin_get_course_mentors',
+          description: 'Get only mentors/trainers for a course',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'number',
+                description: 'Course ID',
+              },
+            },
+            required: ['courseId'],
+          },
+        },
+        {
+          name: 'admin_compare_course_participants',
+          description: 'Compare participants between two courses (useful for finding duplicates or migrations)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId1: {
+                type: 'number',
+                description: 'First course ID',
+              },
+              courseId2: {
+                type: 'number',
+                description: 'Second course ID',
+              },
+            },
+            required: ['courseId1', 'courseId2'],
+          },
+        },
+        {
           name: 'get_courses',
           description: 'Gets the list of all available courses on the Moodle platform (Admin tool)',
           inputSchema: {
@@ -644,6 +694,12 @@ class MoodleMcpServer {
             return await this.adminSearchCoursesByInstructor(request.params.arguments);
           case 'admin_search_courses_advanced':
             return await this.adminSearchCoursesAdvanced(request.params.arguments);
+          case 'admin_get_course_participants':
+            return await this.adminGetCourseParticipants(request.params.arguments);
+          case 'admin_get_course_mentors':
+            return await this.adminGetCourseMentors(request.params.arguments);
+          case 'admin_compare_course_participants':
+            return await this.adminCompareCourseParticipants(request.params.arguments);
           case 'get_courses':
             return await this.getCourses(request.params.arguments);
           case 'get_course_contents':
@@ -1263,6 +1319,75 @@ class MoodleMcpServer {
         content: [{
           type: 'text',
           text: `Error in advanced course search: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async adminGetCourseParticipants(args: any) {
+    console.error(`[ADMIN] Getting all participants for course ${args.courseId}`);
+    
+    try {
+      const { admin_get_course_participants } = await import('./personas/admin/tools/courseParticipants.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await admin_get_course_participants(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error getting course participants: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async adminGetCourseMentors(args: any) {
+    console.error(`[ADMIN] Getting mentors for course ${args.courseId}`);
+    
+    try {
+      const { admin_get_course_mentors } = await import('./personas/admin/tools/courseParticipants.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await admin_get_course_mentors(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error getting course mentors: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async adminCompareCourseParticipants(args: any) {
+    console.error(`[ADMIN] Comparing participants between courses ${args.courseId1} and ${args.courseId2}`);
+    
+    try {
+      const { admin_compare_course_participants } = await import('./personas/admin/tools/courseParticipants.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await admin_compare_course_participants(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error comparing course participants: ${error instanceof Error ? error.message : String(error)}`
         }],
         isError: true
       };
