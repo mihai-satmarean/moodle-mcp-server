@@ -183,13 +183,13 @@ class MoodleMcpServer {
       tools: [
         {
           name: 'get_students',
-          description: 'Gets the list of students enrolled in the configured course',
+          description: 'Gets the list of students enrolled in a course. IMPORTANT: Always specify courseId explicitly when user mentions a specific course ID.',
           inputSchema: {
             type: 'object',
             properties: {
               courseId: {
                 type: 'number',
-                description: 'Course ID (defaults to configured course if not provided)',
+                description: 'REQUIRED when user specifies a course ID. Course ID to get students for (e.g., if user says "course 1301", use courseId: 1301)',
               },
               responseMode: {
                 type: 'string',
