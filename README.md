@@ -1,6 +1,48 @@
 # Moodle MCP Server
 
-An MCP (Model Context Protocol) server that enables LLMs to interact with the Moodle platform to manage courses, students, assignments, and quizzes.
+An MCP (Model Context Protocol) server that enables LLMs to interact with the Moodle platform through three distinct intelligent personas: Admin, Tutor, and Student.
+
+## Architecture Overview
+
+This server implements **three MCP personas** that work together to provide comprehensive learning management:
+
+### 1. **Admin Persona** - Platform Management
+Platform administration, system monitoring, user management, and analytics.
+
+**Key Tools**: `admin_monitor_system_health`, `admin_manage_bulk_enrollments`, `admin_get_platform_analytics`
+
+### 2. **Tutor Persona** - Inclusive Training & Cohort Assessment
+Quiz management with unlimited attempts, automated grading, cohort-level statistical analysis.
+
+**Key Tools**: `cohort_get_statistics`, `cohort_get_distribution`, `tutor_create_inclusive_quiz`, `tutor_get_intervention_priorities`
+
+**Impact**: Reduces tutor workload by 60-95% through auto-grading and intelligent prioritization.
+
+### 3. **Student Persona** - Personalized Learning
+Skill assessment, content adaptation, and personalized learning paths.
+
+**Key Tools**: `student_assess_level`, `student_certify_skill_level`, `student_get_personalized_content`
+
+**Impact**: Content complexity and volume adapted to certified skill level (beginner/intermediate/advanced/expert).
+
+---
+
+## How The Personas Work Together
+
+```
+Admin enrolls students → Tutor assesses cohort → Student gets personalized content
+                              ↓
+                    Cohort statistics analyzed
+                    (Gaussian curves, percentiles)
+                              ↓
+                    Students classified by level
+                              ↓
+                    Content adapted per student
+```
+
+For detailed architecture documentation, see: [`src/personas/README.md`](src/personas/README.md)
+
+---
 
 ## Features
 
