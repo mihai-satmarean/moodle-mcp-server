@@ -438,6 +438,79 @@ class MoodleMcpServer {
           },
         },
         {
+          name: 'tutor_get_student_quiz_attempts',
+          description: 'Get all quiz attempts for a specific student (scores, dates, duration, progress)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              studentId: {
+                type: 'number',
+                description: 'Student ID',
+              },
+              quizId: {
+                type: 'number',
+                description: 'Quiz ID',
+              },
+            },
+            required: ['studentId', 'quizId'],
+          },
+        },
+        {
+          name: 'tutor_get_student_all_quiz_results',
+          description: 'Get all quiz results for a student across ALL quizzes in a course',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              studentId: {
+                type: 'number',
+                description: 'Student ID',
+              },
+              courseId: {
+                type: 'number',
+                description: 'Course ID',
+              },
+            },
+            required: ['studentId', 'courseId'],
+          },
+        },
+        {
+          name: 'tutor_get_student_quiz_grade',
+          description: 'Get best grade for a student at a specific quiz (simple version)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              studentId: {
+                type: 'number',
+                description: 'Student ID',
+              },
+              quizId: {
+                type: 'number',
+                description: 'Quiz ID',
+              },
+            },
+            required: ['studentId', 'quizId'],
+          },
+        },
+        {
+          name: 'tutor_compare_students_quiz_performance',
+          description: 'Compare quiz performance across multiple students (ranking, statistics)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              studentIds: {
+                type: 'array',
+                items: { type: 'number' },
+                description: 'Array of student IDs to compare',
+              },
+              quizId: {
+                type: 'number',
+                description: 'Quiz ID',
+              },
+            },
+            required: ['studentIds', 'quizId'],
+          },
+        },
+        {
           name: 'admin_search_courses_by_name',
           description: 'Search courses by name (partial match supported)',
           inputSchema: {
@@ -688,6 +761,14 @@ class MoodleMcpServer {
             return await this.tutorExtractThemesFromContent(request.params.arguments);
           case 'tutor_get_quiz_creation_guide':
             return await this.tutorGetQuizCreationGuide();
+          case 'tutor_get_student_quiz_attempts':
+            return await this.tutorGetStudentQuizAttempts(request.params.arguments);
+          case 'tutor_get_student_all_quiz_results':
+            return await this.tutorGetStudentAllQuizResults(request.params.arguments);
+          case 'tutor_get_student_quiz_grade':
+            return await this.tutorGetStudentQuizGrade(request.params.arguments);
+          case 'tutor_compare_students_quiz_performance':
+            return await this.tutorCompareStudentsQuizPerformance(request.params.arguments);
           case 'admin_search_courses_by_name':
             return await this.adminSearchCoursesByName(request.params.arguments);
           case 'admin_search_courses_by_instructor':
@@ -1246,6 +1327,98 @@ class MoodleMcpServer {
         content: [{
           type: 'text',
           text: `Error getting quiz creation guide: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorGetStudentQuizAttempts(args: any) {
+    console.error(`[TUTOR] Getting quiz attempts for student ${args.studentId} at quiz ${args.quizId}`);
+    
+    try {
+      const { tutor_get_student_quiz_attempts } = await import('./personas/tutor/tools/quizResults.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await tutor_get_student_quiz_attempts(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error getting student quiz attempts: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorGetStudentAllQuizResults(args: any) {
+    console.error(`[TUTOR] Getting all quiz results for student ${args.studentId} in course ${args.courseId}`);
+    
+    try {
+      const { tutor_get_student_all_quiz_results } = await import('./personas/tutor/tools/quizResults.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await tutor_get_student_all_quiz_results(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error getting all quiz results: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorGetStudentQuizGrade(args: any) {
+    console.error(`[TUTOR] Getting quiz grade for student ${args.studentId} at quiz ${args.quizId}`);
+    
+    try {
+      const { tutor_get_student_quiz_grade } = await import('./personas/tutor/tools/quizResults.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await tutor_get_student_quiz_grade(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error getting student quiz grade: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorCompareStudentsQuizPerformance(args: any) {
+    console.error(`[TUTOR] Comparing quiz performance for ${args.studentIds?.length || 0} students`);
+    
+    try {
+      const { tutor_compare_students_quiz_performance } = await import('./personas/tutor/tools/quizResults.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await tutor_compare_students_quiz_performance(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error comparing quiz performance: ${error instanceof Error ? error.message : String(error)}`
         }],
         isError: true
       };
