@@ -193,14 +193,17 @@ export async function tutor_get_student_all_quiz_results(args: {
             current.sumgrades > best.sumgrades ? current : best
           );
           
+          // Use quiz.grade as fallback if bestAttempt.maxgrade is undefined
+          const maxScore = bestAttempt.maxgrade || quiz.grade || 100;
+          
           quizResults.push({
             quizId: quiz.id,
             quizName: quiz.name,
             attempts: attempts.length,
             bestScore: bestAttempt.sumgrades,
-            maxScore: bestAttempt.maxgrade,
-            percentage: bestAttempt.maxgrade > 0 
-              ? (bestAttempt.sumgrades / bestAttempt.maxgrade) * 100 
+            maxScore: maxScore,
+            percentage: maxScore > 0 
+              ? (bestAttempt.sumgrades / maxScore) * 100 
               : 0,
             lastAttempt: bestAttempt.timefinish
           });
@@ -227,6 +230,13 @@ export async function tutor_get_student_all_quiz_results(args: {
     const attempted = quizResults.filter(q => q.attempts > 0);
     const notAttempted = quizResults.filter(q => q.attempts === 0);
     
+    // Calculate totals
+    const totalScoreObtained = attempted.reduce((sum, q) => sum + (q.bestScore || 0), 0);
+    const totalScorePossible = attempted.reduce((sum, q) => sum + (q.maxScore || 0), 0);
+    const overallPercentage = totalScorePossible > 0 
+      ? (totalScoreObtained / totalScorePossible) * 100 
+      : 0;
+    
     result += `📊 SUMMARY:\n`;
     result += `Total quizzes: ${quizzes.length}\n`;
     result += `Attempted: ${attempted.length}\n`;
@@ -235,6 +245,8 @@ export async function tutor_get_student_all_quiz_results(args: {
     if (attempted.length > 0) {
       const avgPercentage = attempted.reduce((sum, q) => sum + (q.percentage || 0), 0) / attempted.length;
       result += `Average score: ${avgPercentage.toFixed(1)}%\n`;
+      result += `\n📈 TOTAL SCORE:\n`;
+      result += `   ${totalScoreObtained.toFixed(2)} / ${totalScorePossible.toFixed(2)} points (${overallPercentage.toFixed(1)}%)\n`;
     }
     
     result += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
