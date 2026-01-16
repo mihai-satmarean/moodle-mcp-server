@@ -807,6 +807,20 @@ class MoodleMcpServer {
           },
         },
         {
+          name: 'admin_get_active_students_only',
+          description: 'Get ONLY active students from course (filters out suspended/inactive and validates enrollment)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'number',
+                description: 'Course ID',
+              },
+            },
+            required: ['courseId'],
+          },
+        },
+        {
           name: 'get_courses',
           description: 'Gets the list of all available courses on the Moodle platform (Admin tool)',
           inputSchema: {
@@ -989,6 +1003,8 @@ class MoodleMcpServer {
             return await this.adminCompareCourseParticipants(request.params.arguments);
           case 'admin_get_enrollment_status':
             return await this.adminGetEnrollmentStatus(request.params.arguments);
+          case 'admin_get_active_students_only':
+            return await this.adminGetActiveStudentsOnly(request.params.arguments);
           case 'get_courses':
             return await this.getCourses(request.params.arguments);
           case 'get_course_contents':
@@ -1948,6 +1964,29 @@ class MoodleMcpServer {
         content: [{
           type: 'text',
           text: `Error getting enrollment status: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async adminGetActiveStudentsOnly(args: any) {
+    console.error(`[ADMIN] Getting ACTIVE students only for course ${args.courseId}`);
+    
+    try {
+      const { admin_get_active_students_only } = await import('./personas/admin/tools/activeStudents.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await admin_get_active_students_only(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error getting active students: ${error instanceof Error ? error.message : String(error)}`
         }],
         isError: true
       };
