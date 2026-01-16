@@ -548,6 +548,46 @@ class MoodleMcpServer {
           },
         },
         {
+          name: 'tutor_get_student_quiz_chart',
+          description: 'Generate interactive chart visualization of student quiz results (MCP-UI)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              studentId: {
+                type: 'number',
+                description: 'Student ID',
+              },
+              courseId: {
+                type: 'number',
+                description: 'Course ID',
+              },
+            },
+            required: ['studentId', 'courseId'],
+          },
+        },
+        {
+          name: 'tutor_get_quiz_leaderboard_chart',
+          description: 'Generate interactive leaderboard chart for a quiz (MCP-UI)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              quizId: {
+                type: 'number',
+                description: 'Quiz ID',
+              },
+              courseId: {
+                type: 'number',
+                description: 'Course ID',
+              },
+              topN: {
+                type: 'number',
+                description: 'Number of top students to show (default: 10)',
+              },
+            },
+            required: ['quizId', 'courseId'],
+          },
+        },
+        {
           name: 'admin_search_courses_by_name',
           description: 'Search courses by name (partial match supported)',
           inputSchema: {
@@ -810,6 +850,10 @@ class MoodleMcpServer {
             return await this.tutorGetQuizLeaderboard(request.params.arguments);
           case 'tutor_get_course_quiz_completion':
             return await this.tutorGetCourseQuizCompletion(request.params.arguments);
+          case 'tutor_get_student_quiz_chart':
+            return await this.tutorGetStudentQuizChart(request.params.arguments);
+          case 'tutor_get_quiz_leaderboard_chart':
+            return await this.tutorGetQuizLeaderboardChart(request.params.arguments);
           case 'admin_search_courses_by_name':
             return await this.adminSearchCoursesByName(request.params.arguments);
           case 'admin_search_courses_by_instructor':
@@ -1506,6 +1550,52 @@ class MoodleMcpServer {
         content: [{
           type: 'text',
           text: `Error getting quiz completion matrix: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorGetStudentQuizChart(args: any) {
+    console.error(`[TUTOR] Generating quiz chart for student ${args.studentId} in course ${args.courseId}`);
+    
+    try {
+      const { tutor_get_student_quiz_chart } = await import('./personas/tutor/tools/quizCharts.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await tutor_get_student_quiz_chart(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error generating quiz chart: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorGetQuizLeaderboardChart(args: any) {
+    console.error(`[TUTOR] Generating leaderboard chart for quiz ${args.quizId}`);
+    
+    try {
+      const { tutor_get_quiz_leaderboard_chart } = await import('./personas/tutor/tools/quizCharts.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await tutor_get_quiz_leaderboard_chart(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error generating leaderboard chart: ${error instanceof Error ? error.message : String(error)}`
         }],
         isError: true
       };
