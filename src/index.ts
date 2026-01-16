@@ -511,6 +511,43 @@ class MoodleMcpServer {
           },
         },
         {
+          name: 'tutor_get_quiz_leaderboard',
+          description: 'Get quiz results for ALL students in a course (leaderboard with rankings, statistics, and completion status)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              quizId: {
+                type: 'number',
+                description: 'Quiz ID',
+              },
+              courseId: {
+                type: 'number',
+                description: 'Course ID',
+              },
+              sortBy: {
+                type: 'string',
+                enum: ['score', 'name', 'attempts'],
+                description: 'Sort results by (default: score)',
+              },
+            },
+            required: ['quizId', 'courseId'],
+          },
+        },
+        {
+          name: 'tutor_get_course_quiz_completion',
+          description: 'Get quiz completion matrix for entire course (which students completed which quizzes)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'number',
+                description: 'Course ID',
+              },
+            },
+            required: ['courseId'],
+          },
+        },
+        {
           name: 'admin_search_courses_by_name',
           description: 'Search courses by name (partial match supported)',
           inputSchema: {
@@ -769,6 +806,10 @@ class MoodleMcpServer {
             return await this.tutorGetStudentQuizGrade(request.params.arguments);
           case 'tutor_compare_students_quiz_performance':
             return await this.tutorCompareStudentsQuizPerformance(request.params.arguments);
+          case 'tutor_get_quiz_leaderboard':
+            return await this.tutorGetQuizLeaderboard(request.params.arguments);
+          case 'tutor_get_course_quiz_completion':
+            return await this.tutorGetCourseQuizCompletion(request.params.arguments);
           case 'admin_search_courses_by_name':
             return await this.adminSearchCoursesByName(request.params.arguments);
           case 'admin_search_courses_by_instructor':
@@ -1419,6 +1460,52 @@ class MoodleMcpServer {
         content: [{
           type: 'text',
           text: `Error comparing quiz performance: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorGetQuizLeaderboard(args: any) {
+    console.error(`[TUTOR] Getting quiz leaderboard for quiz ${args.quizId} in course ${args.courseId}`);
+    
+    try {
+      const { tutor_get_quiz_leaderboard } = await import('./personas/tutor/tools/quizLeaderboard.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await tutor_get_quiz_leaderboard(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error getting quiz leaderboard: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async tutorGetCourseQuizCompletion(args: any) {
+    console.error(`[TUTOR] Getting quiz completion matrix for course ${args.courseId}`);
+    
+    try {
+      const { tutor_get_course_quiz_completion } = await import('./personas/tutor/tools/quizLeaderboard.js');
+      const argsWithCredentials = {
+        ...args,
+        moodleUrl: MOODLE_API_URL,
+        token: MOODLE_API_TOKEN
+      };
+      return await tutor_get_course_quiz_completion(argsWithCredentials);
+    } catch (error) {
+      console.error('[Error]', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error getting quiz completion matrix: ${error instanceof Error ? error.message : String(error)}`
         }],
         isError: true
       };
