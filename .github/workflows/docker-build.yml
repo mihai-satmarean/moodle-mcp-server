@@ -83,11 +83,26 @@ jobs:
         continue-on-error: true
         run: |
           if [ -f ~/.kube/config ]; then
-            echo "Restarting Moodle MCP Server deployment..."
-            kubectl rollout restart deployment -n obot-mcp -l app.kubernetes.io/name=moodle-mcp-server || echo "No deployments found to restart"
-            echo "Checking rollout status..."
-            kubectl rollout status deployment -n obot-mcp -l app.kubernetes.io/name=moodle-mcp-server --timeout=5m || echo "Timeout waiting for rollout"
-            echo "Restart completed"
+            echo "Restarting Moodle MCP Server deployments..."
+            
+            # Find deployments using moodle-mcp-server image
+            DEPLOYMENTS=$(kubectl get deployments -n obot-mcp -o json | jq -r '.items[] | select(.spec.template.spec.containers[].image | contains("moodle-mcp-server")) | .metadata.name')
+            
+            if [ -z "$DEPLOYMENTS" ]; then
+              echo "No deployments found using moodle-mcp-server image"
+              exit 0
+            fi
+            
+            echo "Found deployments: $DEPLOYMENTS"
+            
+            for deployment in $DEPLOYMENTS; do
+              echo "Restarting deployment: $deployment"
+              kubectl rollout restart deployment/$deployment -n obot-mcp
+              echo "Waiting for rollout to complete..."
+              kubectl rollout status deployment/$deployment -n obot-mcp --timeout=5m || echo "Timeout waiting for $deployment"
+            done
+            
+            echo "All deployments restarted successfully"
           else
             echo "Kubeconfig not available, skipping restart"
           fi
