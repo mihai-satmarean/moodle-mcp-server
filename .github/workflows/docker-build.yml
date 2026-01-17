@@ -19,7 +19,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      actions: write
 
     steps:
       - name: Checkout code
@@ -61,14 +60,34 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
 
-      - name: Trigger Kubernetes deployment restart
-        uses: actions/github-script@v7
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
         continue-on-error: true
-        with:
-          script: |
-            github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'k8s-restart.yml',
-              ref: context.ref
-            })
+        
+      - name: Configure kubeconfig
+        continue-on-error: true
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        run: |
+          if [ -n "$KUBECONFIG_DATA" ]; then
+            mkdir -p ~/.kube
+            echo "$KUBECONFIG_DATA" | base64 -d > ~/.kube/config
+            chmod 600 ~/.kube/config
+            echo "Kubeconfig configured successfully"
+          else
+            echo "KUBECONFIG secret not set, skipping deployment restart"
+            exit 0
+          fi
+        
+      - name: Restart Moodle MCP deployment
+        continue-on-error: true
+        run: |
+          if [ -f ~/.kube/config ]; then
+            echo "Restarting Moodle MCP Server deployment..."
+            kubectl rollout restart deployment -n obot-mcp -l app.kubernetes.io/name=moodle-mcp-server || echo "No deployments found to restart"
+            echo "Checking rollout status..."
+            kubectl rollout status deployment -n obot-mcp -l app.kubernetes.io/name=moodle-mcp-server --timeout=5m || echo "Timeout waiting for rollout"
+            echo "Restart completed"
+          else
+            echo "Kubeconfig not available, skipping restart"
+          fi
