@@ -61,48 +61,49 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
       - name: Setup kubectl
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: azure/setup-kubectl@v3
-        continue-on-error: true
-        
+
       - name: Configure kubeconfig
-        continue-on-error: true
-        env:
-          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
-          if [ -n "$KUBECONFIG_DATA" ]; then
-            mkdir -p ~/.kube
-            echo "$KUBECONFIG_DATA" | base64 -d > ~/.kube/config
-            chmod 600 ~/.kube/config
-            echo "Kubeconfig configured successfully"
-          else
-            echo "KUBECONFIG secret not set, skipping deployment restart"
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+        
+      - name: Find and restart Moodle MCP deployment
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          echo "Finding deployments using moodle-mcp-server image..."
+          
+          # Find all deployments that use our image
+          DEPLOYMENTS=$(kubectl get deployments -n obot-mcp -o json | \
+            jq -r '.items[] | select(.spec.template.spec.containers[].image | contains("moodle-mcp-server")) | .metadata.name')
+          
+          if [ -z "$DEPLOYMENTS" ]; then
+            echo "No deployment found using moodle-mcp-server image in obot-mcp namespace"
+            echo "Available deployments:"
+            kubectl get deployments -n obot-mcp
             exit 0
           fi
-        
-      - name: Restart Moodle MCP deployment
-        continue-on-error: true
-        run: |
-          if [ -f ~/.kube/config ]; then
-            echo "Restarting Moodle MCP Server deployments..."
+          
+          echo "Found deployment(s):"
+          echo "$DEPLOYMENTS"
+          
+          # Restart each deployment found
+          for DEPLOYMENT in $DEPLOYMENTS; do
+            echo ""
+            echo "Restarting deployment: $DEPLOYMENT"
+            kubectl rollout restart deployment $DEPLOYMENT -n obot-mcp
             
-            # Find deployments using moodle-mcp-server image
-            DEPLOYMENTS=$(kubectl get deployments -n obot-mcp -o json | jq -r '.items[] | select(.spec.template.spec.containers[].image | contains("moodle-mcp-server")) | .metadata.name')
+            echo "Waiting for rollout to complete..."
+            kubectl rollout status deployment $DEPLOYMENT -n obot-mcp --timeout=300s || {
+              echo "Warning: Timeout waiting for $DEPLOYMENT rollout"
+              continue
+            }
             
-            if [ -z "$DEPLOYMENTS" ]; then
-              echo "No deployments found using moodle-mcp-server image"
-              exit 0
-            fi
-            
-            echo "Found deployments: $DEPLOYMENTS"
-            
-            for deployment in $DEPLOYMENTS; do
-              echo "Restarting deployment: $deployment"
-              kubectl rollout restart deployment/$deployment -n obot-mcp
-              echo "Waiting for rollout to complete..."
-              kubectl rollout status deployment/$deployment -n obot-mcp --timeout=5m || echo "Timeout waiting for $deployment"
-            done
-            
-            echo "All deployments restarted successfully"
-          else
-            echo "Kubeconfig not available, skipping restart"
-          fi
+            echo "Deployment $DEPLOYMENT restarted successfully!"
+          done
+          
+          echo ""
+          echo "All Moodle MCP deployments processed"
