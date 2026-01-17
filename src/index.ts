@@ -944,7 +944,7 @@ class MoodleMcpServer {
       try {
         switch (request.params.name) {
           case 'get_students':
-            return await this.getStudents();
+            return await this.getStudents(request.params.arguments);
           case 'get_assignments':
             return await this.getAssignments();
           case 'get_quizzes':
