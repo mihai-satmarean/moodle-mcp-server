@@ -183,13 +183,13 @@ class MoodleMcpServer {
       tools: [
         {
           name: 'get_students',
-          description: 'Gets the list of students enrolled in a course. IMPORTANT: Always specify courseId explicitly when user mentions a specific course ID.',
+          description: 'Gets the list of students enrolled in a course. Course ID is REQUIRED.',
           inputSchema: {
             type: 'object',
             properties: {
               courseId: {
                 type: 'number',
-                description: 'REQUIRED when user specifies a course ID. Course ID to get students for (e.g., if user says "course 1301", use courseId: 1301)',
+                description: 'Course ID to get students for (REQUIRED). Example: for "course 1301", use courseId: 1301',
               },
               responseMode: {
                 type: 'string',
@@ -205,7 +205,7 @@ class MoodleMcpServer {
                 description: 'Number of students to skip (for pagination, default: 0)',
               },
             },
-            required: [],
+            required: ['courseId'],
           },
         },
         {
